@@ -194,7 +194,9 @@ details.adv .sec:first-of-type{margin-top:10px}
 @media (max-width:860px){ #lib{left:0;padding:64px 12px 12px} #lib h2{font-size:26px} #libGrid{grid-template-columns:1fr} }
 
 #mapSeg button{flex:1 1 45%}
-#pano iframe{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
+#pano{overflow:hidden}
+#pano iframe,#pjs{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .55s ease;pointer-events:none;transform-origin:50% 55%;will-change:transform,opacity}
+#pjs.on{opacity:1;pointer-events:auto}
 #pano iframe.on{pointer-events:auto}
 #pano iframe.on{opacity:1}
 #viewBtn{position:absolute;right:14px;bottom:190px;z-index:22;border-radius:999px;background:var(--panel);backdrop-filter:blur(10px)}
@@ -1452,30 +1454,42 @@ function orbit(stop){
 const PV = { front:0, h:0, stop:null, shown:false, pre:null, preTimer:0, pos:null, walkTok:0, strollTok:0, hold:0 };
 function panoUrl(lat, lng, h){
   h = Math.round(((h%360)+360)%360);
-  const key = (st('gmKey','')||'').trim();
-  if(key && !M.gBad) return 'https://www.google.com/maps/embed/v1/streetview?key='+encodeURIComponent(key)+'&location='+lat+','+lng+'&heading='+h+'&pitch=0&fov=90';
   return 'https://maps.google.com/maps?layer=c&cbll='+lat+','+lng+'&cbp=11,'+h+',0,0,0&output=svembed';
 }
 const frames = () => document.querySelectorAll('#pano iframe');
-// load a pano into the hidden iframe (or reuse a finished preload), then crossfade
-function loadPano(lat, lng, h){
+const hasKey = () => !!(st('gmKey','')||'').trim() && !M.gBad;
+
+/* motion on the visible iframe: "walk" = slow dolly forward, "look" = slow pan sideways (head turning) */
+function animate(el, motion){
+  if(!el) return;
+  el.style.transition = 'none'; el.style.transform = motion==='look' ? 'scale(1.28) translateX(7%)' : 'scale(1)';
+  void el.offsetWidth;
+  const ms = motion==='walk' ? 3400 : motion==='look' ? 7000 : 0;
+  el.style.transition = 'opacity .55s ease, transform '+ms+'ms linear';
+  el.style.transform = motion==='walk' ? 'scale(1.2) translateY(1.5%)' : motion==='look' ? 'scale(1.28) translateX(-7%)' : 'scale(1)';
+}
+// load a pano into the hidden iframe (or reuse a finished preload), then crossfade + start its motion
+function loadPano(lat, lng, h, motion, notBefore){
   const url = panoUrl(lat, lng, h);
   return new Promise(res => {
     const fr = frames(); const back = fr[1-PV.front], front = fr[PV.front];
-    const swap = () => { back.classList.add('on'); front.classList.remove('on'); PV.front = 1-PV.front; PV.pre = null; res(); };
+    const swap = () => {
+      const wait = (notBefore||0) - Date.now();
+      if(wait > 0) return setTimeout(swap, wait);
+      animate(back, motion||'still'); back.classList.add('on'); front.classList.remove('on'); PV.front = 1-PV.front; PV.pre = null; res();
+    };
     if(PV.pre && PV.pre.url===url){
       if(PV.pre.ready) return swap();
-      const wait = setTimeout(swap, 4000); PV.pre.onready = () => { clearTimeout(wait); setTimeout(swap, 250); }; return;
+      const w = setTimeout(swap, 4000); PV.pre.onready = () => { clearTimeout(w); setTimeout(swap, 120); }; return;
     }
-    let done = false; const fin = () => { if(done) return; done = true; clearTimeout(to); setTimeout(swap, 180); };
+    let done = false; const fin = () => { if(done) return; done = true; clearTimeout(to); setTimeout(swap, 120); };
     const to = setTimeout(fin, 4500);
     back.onload = fin; back.src = url;
   });
 }
-// quietly load the next stop's pano into the hidden iframe while the hosts are still talking
 function preloadPano(stop, delay, force){
   clearTimeout(PV.preTimer);
-  if(!stop) return;
+  if(!stop || hasKey()) return;
   PV.preTimer = setTimeout(() => {
     if(!PV.shown && !force) return;
     const back = frames()[1-PV.front]; const url = panoUrl(stop.lat, stop.lng, stop.heading||0);
@@ -1484,18 +1498,61 @@ function preloadPano(stop, delay, force){
     back.src = url;
   }, delay==null ? 3500 : delay);
 }
+
+/* ---------- with a Google key: drive Google's own Street View viewer (native walking transitions, smooth turning) ---------- */
+const SV = { pano:null, svc:null, lib:null, raf:0 };
+async function svInit(){
+  await loadGoogle(); if(M.gBad) throw new Error('key rejected');
+  if(SV.pano) return;
+  SV.lib = await google.maps.importLibrary('streetView');
+  SV.pano = new SV.lib.StreetViewPanorama($('#pjs'), { addressControl:false, fullscreenControl:false, motionTracking:false, motionTrackingControl:false,
+    showRoadLabels:false, zoomControl:false, panControl:false, linksControl:true, enableCloseButton:false, clickToGo:true, visible:true });
+  SV.svc = new SV.lib.StreetViewService();
+  const hold = () => { PV.hold = Date.now()+15000; };
+  $('#pjs').addEventListener('pointerdown', hold); $('#pjs').addEventListener('wheel', hold, {passive:true});
+}
+async function svFind(lat, lng, radius){
+  const req = { location:{lat, lng}, radius:radius||50, preference:(SV.lib.StreetViewPreference||{}).NEAREST || 'nearest' };
+  if(SV.lib.StreetViewSource && SV.lib.StreetViewSource.OUTDOOR) req.sources = [SV.lib.StreetViewSource.OUTDOOR];
+  try{ const r = await SV.svc.getPanorama(req); return r.data.location; }catch(e){ return null; }
+}
+function svTurn(h, ms){
+  cancelAnimationFrame(SV.raf);
+  const p0 = SV.pano.getPov(); const d = ((h - p0.heading + 540) % 360) - 180; const t0 = performance.now();
+  return new Promise(res => { const step = now => { const f = Math.min(1, (now-t0)/ms); const e = f<.5 ? 2*f*f : 1-Math.pow(-2*f+2,2)/2;
+    SV.pano.setPov({heading:p0.heading + d*e, pitch:0}); if(f<1) SV.raf = requestAnimationFrame(step); else res(); }; SV.raf = requestAnimationFrame(step); });
+}
+async function svGo(lat, lng, h, radius){
+  const loc = await svFind(lat, lng, radius||60); if(!loc) return false;
+  if(SV.pano.getPano() !== loc.pano) SV.pano.setPano(loc.pano);
+  await svTurn(h, 650); return true;
+}
+function svLook(tok){
+  cancelAnimationFrame(SV.raf);
+  const step = () => { if(PV.strollTok !== tok || !PV.shown) return;
+    if(Date.now() > PV.hold){ const pv = SV.pano.getPov(); SV.pano.setPov({heading:(pv.heading+0.06)%360, pitch:pv.pitch}); }
+    SV.raf = requestAnimationFrame(step); };
+  SV.raf = requestAnimationFrame(step);
+}
+
 async function panoShow(stop){
   PV.stop = stop; PV.h = stop.heading||0;
   $('#pano').classList.remove('hidden'); M.active = 'pano'; PV.shown = true; viewBtn();
-  await loadPano(stop.lat, stop.lng, PV.h);
+  PV.js = false;
+  if(hasKey()){
+    try{ await svInit(); if(await svGo(stop.lat, stop.lng, PV.h, 150)){ PV.js = true; frames().forEach(f => f.classList.remove('on')); $('#pjs').classList.add('on'); return; } }
+    catch(e){ console.warn('sv', e); }
+  }
+  $('#pjs').classList.remove('on');
+  await loadPano(stop.lat, stop.lng, PV.h, 'still');
 }
 function panoHide(){
-  if(!PV.shown) return; PV.shown = false; clearTimeout(PV.preTimer); PV.pre = null;
-  frames().forEach(f => f.classList.remove('on'));
+  if(!PV.shown) return; PV.shown = false; clearTimeout(PV.preTimer); PV.pre = null; cancelAnimationFrame(SV.raf);
+  frames().forEach(f => f.classList.remove('on')); $('#pjs').classList.remove('on');
   setTimeout(() => { if(!PV.shown) $('#pano').classList.add('hidden'); }, 1300);
   if(M.active==='pano') M.active = 'sat'; viewBtn();
 }
-/* ---------- auto-walk: follow a real footpath, step by step in 360° ---------- */
+/* ---------- auto-walk: follow a real footpath ---------- */
 function dest(p, meters, brgDeg){
   const d = meters/6371000, b = brgDeg*R, la = p.lat*R, lo = p.lng*R;
   const la2 = Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(b));
@@ -1531,30 +1588,42 @@ async function walkTo(stop){
   const line = await footRoute(from, stop);
   if(tok !== PV.walkTok) return;
   PV.stop = stop;
-  if(!line || line.length < 2){ PV.pos = {lat:stop.lat, lng:stop.lng}; await loadPano(stop.lat, stop.lng, stop.heading||0); return; }
+  if(!line || line.length < 2){
+    PV.pos = {lat:stop.lat, lng:stop.lng};
+    if(PV.js) await svGo(stop.lat, stop.lng, stop.heading||0, 150); else await loadPano(stop.lat, stop.lng, stop.heading||0, 'still');
+    return;
+  }
   const pts = samplePath(line);
   const badge = $('#modeBadge'); if(badge) badge.textContent = (lang==='vi' ? '🚶 Đang đi bộ tới ' : '🚶 Walking to ') + stop.name + '…';
+  const STEP = 2600; let lastSwap = Date.now() - STEP;
   for(let i=1;i<pts.length;i++){
     if(tok !== PV.walkTok || !PV.shown) return;
     const p = pts[i]; const last = i === pts.length-1;
     const h = !last ? bearing(p, pts[i+1]) : (hav(p, stop)*1000 > 12 ? bearing(p, stop) : bearing(pts[i-1], p));
-    await loadPano(p.lat, p.lng, h); PV.pos = p;
-    M.agent.setLngLat([p.lng, p.lat]); M.map.jumpTo({center:[p.lng, p.lat], bearing:h});
-    await ctx.sleep(1100);
+    if(PV.js){
+      await svGo(p.lat, p.lng, h, 30);                 // Google animates the step itself
+      await ctx.sleep(1500);
+    }else{
+      await ctx.sleep(Math.max(0, 620 - (Date.now()-lastSwap)));   // let the previous frame finish fading out before reusing it
+      await loadPano(p.lat, p.lng, h, last ? 'still' : 'walk', lastSwap + STEP);
+      lastSwap = Date.now();
+    }
+    PV.pos = p; M.agent.setLngLat([p.lng, p.lat]); M.map.jumpTo({center:[p.lng, p.lat], bearing:h});
   }
 }
-function stopStroll(){ PV.strollTok++; }
+function stopStroll(){ PV.strollTok++; cancelAnimationFrame(SV.raf); }
 function startStroll(stop){
-  // stand on the street spot we arrived at and slowly turn to look around.
-  // (stepping off sideways often snaps into someone's indoor photo sphere, so we stay put)
+  // stand on the street spot we arrived at and look around: smooth turning (key) or slow panning between views (no key)
   stopStroll(); const tok = PV.strollTok; const at = PV.pos || {lat:stop.lat, lng:stop.lng};
+  if(PV.js){ svLook(tok); return; }
   let h = hav(at, stop)*1000 > 12 ? bearing(at, stop) : (stop.heading||0);
+  animate(frames()[PV.front], 'look');
   (async () => {
     while(PV.strollTok === tok && PV.shown){
-      await ctx.sleep(6000);
+      await ctx.sleep(6400);
       if(PV.strollTok !== tok || !PV.shown) return;
-      if(Date.now() < PV.hold) continue;          // the user is looking around: don't move
-      h += 60; await loadPano(at.lat, at.lng, h);
+      if(Date.now() < PV.hold){ continue; }          // the user is looking around: don't move
+      h += 45; await loadPano(at.lat, at.lng, h, 'look');
     }
   })();
 }
@@ -1713,7 +1782,7 @@ window.WCAdapter = {
   init(stage, c){
     ctx = c;
     stage.innerHTML = '<div id="ml" class="layer"></div><div id="gsv" class="layer hidden"></div><div id="g3d" class="layer hidden"></div>'
-      + '<div id="pano" class="layer hidden"><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe></div>'
+      + '<div id="pano" class="layer hidden"><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><div id="pjs"></div></div>'
       + '<button id="viewBtn" class="btn hidden"></button>';
     wireSettings(); applyLang(c.lang());
     // wait for the map library: some viewers load it late (or block it); never crash the podcast
