@@ -1237,7 +1237,7 @@ const M = { ready:null, ok:false, map:null, agent:null, pins:[], mode:'sat', act
 
 const L = {
   vi:{pano:'🚶 Đi vào 360°',sat:'🛰️ Vệ tinh 3D',sv:'🔑 Street View đi bộ',g3d:'🔑 Google 3D',
-    npano:'Miễn phí, không cần key: agent bay tới rồi đáp xuống góc nhìn 360° ngoài đường phố (ảnh Google Street View). Điểm gần nhau thì tự đi bộ theo đường phố thật; tới nơi thì đi dạo vòng quanh công trình trong lúc host kể. Kéo chuột để tự nhìn (app sẽ đứng yên chờ bạn). Nơi nào không có ảnh 360°, bấm nút 🛰️ để xem vệ tinh.',
+    npano:'Miễn phí, không cần key: agent bay tới rồi đáp xuống góc nhìn 360° ngoài đường phố (ảnh Google Street View). Điểm gần nhau thì tự đi bộ theo đường phố thật; tới nơi thì đứng ngắm và xoay nhìn quanh trong lúc host kể. Kéo chuột để tự nhìn (app sẽ đứng yên chờ bạn). Nơi nào không có ảnh 360°, bấm nút 🛰️ để xem vệ tinh.',
     toMap:'🛰️ Xem vệ tinh', toPano:'🚶 Vào 360°', noMap:'Không tải được bản đồ ở đây (khung xem trước có thể chặn). Podcast vẫn phát. Để xem bản đồ và 360°, hãy tải file về máy rồi mở bằng Edge hoặc Chrome.',
     nsat:'Miễn phí, không cần key: ảnh vệ tinh Esri + địa hình 3D. Giữ chuột phải (hoặc Ctrl + kéo) để xoay, nghiêng.',
     nsv:'Agent bay tới rồi "đáp" xuống Street View và đi bộ quanh điểm dừng. Cần Google Maps API key (mục Cài đặt nâng cao).',
@@ -1248,7 +1248,7 @@ const L = {
     noSv:'Không có Street View gần', useSat:'→ dùng vệ tinh', gFail:'Google Maps từ chối key (kiểm tra key, API đã bật, giới hạn website). Tạm dùng vệ tinh.',
     wiki:'Chưa có Gemini key → đang ghép kịch bản từ Wikipedia…', geo:'Đang chốt toạ độ chính xác', notFound:'Không tìm thấy địa điểm này', few:'Wikipedia có quá ít bài viết quanh địa điểm này'},
   en:{pano:'🚶 Walk-in 360°',sat:'🛰️ Satellite 3D',sv:'🔑 Street View walk',g3d:'🔑 Google 3D',
-    npano:'Free, no key: the agent flies there, then drops into a 360° street-level view (Google Street View imagery). Nearby stops are reached on foot along real streets; at each stop the agent strolls around the landmark while the hosts talk. Drag to look around (the walk pauses for you). If a spot has no 360° imagery, press 🛰️ for satellite.',
+    npano:'Free, no key: the agent flies there, then drops into a 360° street-level view (Google Street View imagery). Nearby stops are reached on foot along real streets; at each stop the agent looks around while the hosts talk. Drag to look around (the walk pauses for you). If a spot has no 360° imagery, press 🛰️ for satellite.',
     toMap:'🛰️ Satellite view', toPano:'🚶 Enter 360°', noMap:'The map could not load here (this preview may block it). The podcast still plays. Download the file and open it in Edge or Chrome for the map and 360°.',
     nsat:'Free, no key: Esri satellite imagery + 3D terrain. Right-drag (or Ctrl + drag) to rotate and tilt.',
     nsv:'The agent flies there, then drops into Street View and walks around each stop. Needs a Google Maps API key (Advanced settings).',
@@ -1544,15 +1544,16 @@ async function walkTo(stop){
 }
 function stopStroll(){ PV.strollTok++; }
 function startStroll(stop){
-  stopStroll(); const tok = PV.strollTok; const center = {lat:stop.lat, lng:stop.lng};
-  let ang = PV.pos && hav(PV.pos, center) > 0.005 ? bearing(center, PV.pos) : ((stop.heading||0)+180)%360;
+  // stand on the street spot we arrived at and slowly turn to look around.
+  // (stepping off sideways often snaps into someone's indoor photo sphere, so we stay put)
+  stopStroll(); const tok = PV.strollTok; const at = PV.pos || {lat:stop.lat, lng:stop.lng};
+  let h = hav(at, stop)*1000 > 12 ? bearing(at, stop) : (stop.heading||0);
   (async () => {
     while(PV.strollTok === tok && PV.shown){
-      await ctx.sleep(5000);
+      await ctx.sleep(6000);
       if(PV.strollTok !== tok || !PV.shown) return;
       if(Date.now() < PV.hold) continue;          // the user is looking around: don't move
-      ang += 38; const p = dest(center, 38, ang);    // circle the landmark, always facing it
-      await loadPano(p.lat, p.lng, bearing(p, center)); PV.pos = p;
+      h += 60; await loadPano(at.lat, at.lng, h);
     }
   })();
 }
