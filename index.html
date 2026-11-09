@@ -226,6 +226,11 @@ details.adv .sec:first-of-type{margin-top:10px}
 #vfade.on{opacity:1}
 #vidCredit{position:absolute;top:96px;left:14px;z-index:19;font-size:12px;color:#e9eefc;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;text-decoration:none}
 #vidCredit:hover{text-decoration:underline}
+
+#pxv{overflow:hidden;background:#000}
+#pxv video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s ease}
+#pxv video.on{opacity:1;animation:pxkb 40s linear forwards}
+@keyframes pxkb{from{transform:scale(1)}to{transform:scale(1.1)}}
 </style></head><body>
 <div id="app">
   <div id="stage"></div>
@@ -1436,7 +1441,7 @@ function stopOrbit(){
 function orbit(stop){
   if(!M.ok) return;
   stopOrbit();
-  if(M.active==='video'){ try{ YV.player.playVideo(); }catch(e){} return; }
+  if(M.active==='video'){ if(YV.src==='px'){ pxShow(PX.key, M.curIdx); } else { try{ YV.player.playVideo(); }catch(e){} } return; }
   if(M.active==='pano'){ startStroll(stop); return; }
   if(M.active==='g3d' && M.m3d){
     const camera = { center:{lat:stop.lat, lng:stop.lng, altitude:40}, tilt:66, range:700, heading:stop.heading||0 };
@@ -1672,7 +1677,35 @@ function videoKey(stop){
   for(const [re,k] of DEST_ALIAS) if(re.test(hay)) return k;
   return null;
 }
-const YV = { api:null, player:null, key:null, shown:false, ducked:false, bad:{} };
+const PEXELS = { // free stock clips (Pexels license), no ads. [file path, seconds, creator]
+  hoian:[["12690271/12690271-hd_1280_720_24fps.mp4",30,"khanhhoangminh"],["15840257/15840257-hd_1280_720_24fps.mp4",18,"khanhhoangminh"],["12690265/12690265-hd_1280_720_24fps.mp4",18,"khanhhoangminh"],["38358426/16288438_1280_720_24fps.mp4",52,"khanhhoangminh"],["12737266/12737266-hd_1280_720_24fps.mp4",38,"khanhhoangminh"],["12737210/12737210-hd_1280_720_24fps.mp4",43,"khanhhoangminh"],["15815833/15815833-hd_1280_720_24fps.mp4",23,"khanhhoangminh"],["12966127/12966127-hd_1280_720_24fps.mp4",25,"khanhhoangminh"],["15843972/15843972-hd_1280_720_24fps.mp4",23,"khanhhoangminh"]],
+  hanoi:[["40120664/17129864_1280_720_60fps.mp4",19,"Trần"],["35369142/14985939_1280_720_60fps.mp4",10,"Sandeep"],["34056867/14443849_1280_720_60fps.mp4",10,"Thuan"],["34081866/14455493_1280_720_60fps.mp4",11,"Thuan"],["34081856/14455573_1280_720_60fps.mp4",14,"Thuan"],["30273953/12977701_1280_720_30fps.mp4",22,"Trent"],["34081858/14455398_1280_720_60fps.mp4",14,"Thuan"],["31873137/13577487_1280_720_50fps.mp4",46,"Nimit"],["34081851/14455558_1280_720_60fps.mp4",21,"Thuan"],["35369136/14985850_1280_720_60fps.mp4",10,"Sandeep"]],
+  paris:[["19539294/19539294-hd_1280_720_24fps.mp4",26,"K"],["14886910/14886910-hd_1280_720_60fps.mp4",36,"Artem"],["18514289/18514289-hd_1280_720_30fps.mp4",8,"Eugenia"],["13556986/13556986-hd_1280_720_24fps.mp4",58,"Jay"]]
+};
+const PX = { key:null, list:[], i:0, front:0, timer:0, cur:null };
+const pxEls = () => document.querySelectorAll('#pxv video');
+function pxNext(){
+  const L = PX.list; if(!L.length) return;
+  const clip = L[PX.i % L.length]; PX.i++;
+  const els = pxEls(); const back = els[1-PX.front], front = els[PX.front];
+  let started = false;
+  const go = () => { if(started) return; started = true;
+    back.play().catch(() => {}); back.classList.add('on'); front.classList.remove('on'); PX.front = 1-PX.front; PX.cur = clip;
+    setTimeout(() => { try{ front.pause(); }catch(e){} }, 1300);
+    vidCredit(PX.key);
+    clearTimeout(PX.timer); PX.timer = setTimeout(pxNext, Math.max(6, (clip[1]||12) - 1.3) * 1000); };
+  back.muted = true; back.playsInline = true; back.loop = true;
+  back.oncanplay = go; back.onerror = () => { clearTimeout(PX.timer); PX.timer = setTimeout(pxNext, 300); };
+  back.src = 'https://videos.pexels.com/video-files/' + clip[0]; back.load();
+  setTimeout(go, 6000);
+}
+function pxShow(key, idx){
+  $('#pxv').classList.remove('hidden');
+  if(PX.key !== key){ PX.key = key; PX.list = PEXELS[key]; const n = Math.max(1,(M.stops||[]).length); PX.i = Math.floor((idx||0) * PX.list.length / n); pxNext(); }
+  else { const v = pxEls()[PX.front]; v.play().catch(() => {}); if(!PX.timer) PX.timer = setTimeout(pxNext, 8000); }
+}
+function pxStop(){ clearTimeout(PX.timer); PX.timer = 0; pxEls().forEach(v => { try{ v.pause(); }catch(e){} }); }
+const YV = { src:'yt', api:null, player:null, key:null, shown:false, ducked:false, bad:{} };
 function loadYT(){
   if(YV.api) return YV.api;
   YV.api = new Promise((res, rej) => {
@@ -1699,12 +1732,21 @@ async function ytPlayer(){
 function waitDuration(pl){ return new Promise(res => { const t0 = Date.now(); const tick = () => { const d = pl.getDuration && pl.getDuration(); if(d > 0 || Date.now()-t0 > 8000) return res(); setTimeout(tick, 200); }; tick(); }); }
 function vidVolume(){ try{ YV.player.setVolume(YV.ducked ? 7 : 26); }catch(e){} }
 function vidCredit(key){
-  const a = $('#vidCredit'); if(!a) return; const v = VIDEOS[key];
+  const a = $('#vidCredit'); if(!a) return;
+  if(YV.src === 'px' && PX.cur){ const id = PX.cur[0].split('/')[0]; a.href = 'https://www.pexels.com/video/'+id+'/'; a.textContent = '🎥 Video: '+PX.cur[2]+' · Pexels ↗'; a.classList.remove('hidden'); return; }
+  const v = VIDEOS[key];
   if(!v){ a.classList.add('hidden'); return; }
   a.href = 'https://www.youtube.com/watch?v='+v[0]; a.textContent = '🎥 Video: '+v[1]+' · YouTube ↗'; a.classList.remove('hidden');
 }
 async function videoShow(stop, idx){
-  const key = videoKey(stop); if(!key || YV.bad[key]) return false;
+  const key = videoKey(stop); if(!key) return false;
+  if(PEXELS[key]){   // ad-free stock clips
+    if(YV.src === 'yt'){ try{ YV.player && YV.player.pauseVideo(); }catch(e){} $('#vid').classList.add('hidden'); }
+    YV.src = 'px'; pxShow(key, idx); YV.shown = true; M.active = 'video'; viewBtn(); return true;
+  }
+  if(YV.bad[key]) return false;
+  if(YV.src === 'px'){ pxStop(); $('#pxv').classList.add('hidden'); PX.key = null; }
+  YV.src = 'yt';
   let pl; try{ pl = await ytPlayer(); }catch(e){ console.warn(e); return false; }
   $('#vid').classList.remove('hidden');
   if(YV.key !== key){
@@ -1722,6 +1764,7 @@ async function videoShow(stop, idx){
 function videoHide(){
   if(!YV.shown) return; YV.shown = false;
   $('#vid').classList.add('hidden'); try{ YV.player.pauseVideo(); }catch(e){}
+  $('#pxv').classList.add('hidden'); pxStop();
   if(M.active === 'video') M.active = 'sat'; const a = $('#vidCredit'); if(a) a.classList.add('hidden'); viewBtn();
 }
 async function panoFlow(stop, prev){
@@ -1759,7 +1802,7 @@ async function flyTo(stop, idx, prev){
   if(M.mode==='video'){
     const key = videoKey(stop);
     if(key && !YV.bad[key]){
-      const sameVideo = YV.shown && key === YV.key;
+      const sameVideo = YV.shown && (YV.src === 'px' ? key === PX.key : key === YV.key);
       if(!sameVideo){ panoHide(); videoHide(); showLayer('sat'); await satFly(stop, prev, 15.5, prev ? 5500 : 3500); }
       if(await videoShow(stop, idx)) return;
     }
@@ -1892,6 +1935,7 @@ window.WCAdapter = {
     ctx = c;
     stage.innerHTML = '<div id="ml" class="layer"></div><div id="gsv" class="layer hidden"></div><div id="g3d" class="layer hidden"></div>'
       + '<div id="pano" class="layer hidden"><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><div id="pjs"></div></div>'
+      + '<div id="pxv" class="layer hidden"><video muted playsinline></video><video muted playsinline></video></div>'
       + '<div id="vid" class="layer hidden"><div class="vwrap"><div id="ytp"></div></div><div id="vfade"></div></div>'
       + '<button id="viewBtn" class="btn hidden"></button><a id="vidCredit" class="hidden" target="_blank" rel="noopener"></a>';
     wireSettings(); applyLang(c.lang());
@@ -1921,9 +1965,9 @@ window.WCAdapter = {
   map:{ setRoute, flyTo, orbit, stopOrbit, highlight,
     setTour(sc){ M.tourId = sc.id || ''; M.tourDest = sc.title || ''; },
     duck(on){ YV.ducked = on; vidVolume(); },
-    onPause(){ if(YV.shown){ try{ YV.player.pauseVideo(); }catch(e){} } },
-    onResume(){ if(YV.shown){ try{ YV.player.playVideo(); }catch(e){} } },
-    wantsAmbient(){ return M.mode !== 'video'; } },
+    onPause(){ if(YV.shown){ if(YV.src==='px') pxStop(); else try{ YV.player.pauseVideo(); }catch(e){} } },
+    onResume(){ if(YV.shown){ if(YV.src==='px') pxShow(PX.key, M.curIdx); else try{ YV.player.playVideo(); }catch(e){} } },
+    wantsAmbient(){ if(M.mode !== 'video') return true; const k = M.stops && M.stops[0] && videoKey(M.stops[0]); return !k || !!PEXELS[k]; } },
   ai:{ generate, refine }
 };
 })();
