@@ -220,7 +220,7 @@ details.adv .sec:first-of-type{margin-top:10px}
 #itin.collapsed header b::after{content:" ▸"}
 
 #vid{overflow:hidden;background:#000}
-#vid .vwrap{position:absolute;left:50%;top:50%;width:max(100vw,177.78vh);height:max(100vh,56.25vw);transform:translate(-50%,-50%);pointer-events:none}
+#vid .vwrap{position:absolute;left:50%;top:50%;width:max(100vw,177.78vh);height:max(100vh,56.25vw);transform:translate(-50%,-50%);pointer-events:auto}
 #vid .vwrap iframe,#vid #ytp{width:100%;height:100%;border:0}
 #vfade{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .35s;pointer-events:none}
 #vfade.on{opacity:1}
@@ -1429,7 +1429,7 @@ async function g3dFly(stop){
 /* ---------- orbit / walk ---------- */
 function stopOrbit(){
   if(!M.ok) return;
-  PV.walkTok++; stopStroll(); if(YV.shown){ try{ YV.player.pauseVideo(); }catch(e){} }
+  PV.walkTok++; stopStroll();
   cancelAnimationFrame(M.raf); M.raf = 0;
   if(M.m3d){ try{ M.m3d.stopCameraAnimation && M.m3d.stopCameraAnimation(); }catch(e){} }
 }
@@ -1646,13 +1646,13 @@ function startStroll(stop){
 
 /* ---------- real walking videos (YouTube walking tours, official embedded player) ---------- */
 const VIDEOS = {
-  hoian:['cm50M7kCV98','World Wanderings'], hanoi:['xId3cHWsta4','World Wanderings'], hue:['jFXPTucswWo','POPtravel'], halong:['Vl7YOcQUZz4','Lais'],
-  saigon:['_Rc-sSE29Vc','4K WORLD TOUR'], dalat:['Iye9fEeQQ9c','Walking Asia'], ninhbinh:['FKBEOQPLecE','GlobalWalk Tours'], sapa:['Xl3brTglZT8','Random Walking Tours'],
-  cantho:['zJOkkiONfVo','POPtravel'], phuquoc:['zxfkKABkglQ','Walkscapes'], kyoto:['SKJG4xqdH_0','Ambient Exploration'], paris:['6BPuGeS6O4w','HP Walking Tours'],
-  rome:['cH1E97JIyUo','HP Walking Tours'], cairo:['2mGAKmK2zTk','World Wanderings'], giza:['EaQr917lRgI','Prowalk Tours'], luxor:['XybWba5c6D8','Gimbal Walk TV'],
-  newyork:['1aedKShR1rA','WALKS and the CITY'], seoul:['unY9hqu9bEk','Walking OZ'], bangkok:['3CRJWy5zXvg','HP Walking Tours'], bali:['b4VLlbM_qHI','HP Walking Tours'],
-  london:['8WlUiln-VeY','HP Walking Tours'], greatwall:['cVmM6sUcdwg','Footprint'], tajmahal:['7WJNuThYCCU','APR World Travel'], petra:['J4NMLfsd5tU','Prowalk Tours'],
-  chichen:['DqqQzs5W6Co','TRAVOH'], machu:['zssO1ENPoI0','Mr Walking'], rio:['bmDS1pN0wo4','Prowalk Tours']
+  hoian:['cm50M7kCV98','World Wanderings',3722], hanoi:['xId3cHWsta4','World Wanderings',12877], hue:['jFXPTucswWo','POPtravel',5220], halong:['Vl7YOcQUZz4','Lais',545],
+  saigon:['_Rc-sSE29Vc','4K WORLD TOUR',4025], dalat:['Iye9fEeQQ9c','Walking Asia',5090], ninhbinh:['FKBEOQPLecE','GlobalWalk Tours',2246], sapa:['Xl3brTglZT8','Random Walking Tours',6936],
+  cantho:['zJOkkiONfVo','POPtravel',3840], phuquoc:['zxfkKABkglQ','Walkscapes',2379], kyoto:['SKJG4xqdH_0','Ambient Exploration',7612], paris:['6BPuGeS6O4w','HP Walking Tours',6299],
+  rome:['cH1E97JIyUo','HP Walking Tours',13013], cairo:['2mGAKmK2zTk','World Wanderings',16228], giza:['EaQr917lRgI','Prowalk Tours',6568], luxor:['XybWba5c6D8','Gimbal Walk TV',2566],
+  newyork:['1aedKShR1rA','WALKS and the CITY',14368], seoul:['unY9hqu9bEk','Walking OZ',5688], bangkok:['3CRJWy5zXvg','HP Walking Tours',6166], bali:['b4VLlbM_qHI','HP Walking Tours',5502],
+  london:['8WlUiln-VeY','HP Walking Tours',17016], greatwall:['cVmM6sUcdwg','Footprint',6322], tajmahal:['7WJNuThYCCU','APR World Travel',2988], petra:['J4NMLfsd5tU','Prowalk Tours',17755],
+  chichen:['DqqQzs5W6Co','TRAVOH',5918], machu:['zssO1ENPoI0','Mr Walking',2454], rio:['bmDS1pN0wo4','Prowalk Tours',8804]
 };
 const TOUR_VIDEO = {
   egypt: s => /karnak|luxor/i.test(s.geo) ? 'luxor' : (/khalili|cairo/i.test(s.geo) && !/giza/i.test(s.geo)) ? 'cairo' : 'giza',
@@ -1706,14 +1706,17 @@ function vidCredit(key){
 async function videoShow(stop, idx){
   const key = videoKey(stop); if(!key || YV.bad[key]) return false;
   let pl; try{ pl = await ytPlayer(); }catch(e){ console.warn(e); return false; }
-  const n = Math.max(1, (M.stops||[]).length); const frac = 0.06 + 0.84*((idx||0)/n);
-  const fade = $('#vfade'); fade.classList.add('on');
-  $('#vid').classList.remove('hidden'); await ctx.sleep(350);
-  if(YV.key !== key){ YV.key = key; pl.loadVideoById({ videoId:VIDEOS[key][0] }); await waitDuration(pl); }
-  const d = pl.getDuration() || 0; if(d > 90) pl.seekTo(Math.floor(d*frac), true);
-  try{ pl.unMute(); }catch(e){} vidVolume(); pl.playVideo();
+  $('#vid').classList.remove('hidden');
+  if(YV.key !== key){
+    // new place: start at a point that matches how far into the tour we are (ads, if any, play first)
+    const n = Math.max(1, (M.stops||[]).length); const frac = 0.06 + 0.84*((idx||0)/n);
+    const d = VIDEOS[key][2] || 0; const fade = $('#vfade'); fade.classList.add('on');
+    YV.key = key; pl.loadVideoById({ videoId:VIDEOS[key][0], startSeconds: d > 120 ? Math.floor(d*frac) : 0 });
+    setTimeout(() => fade.classList.remove('on'), 1200);
+  }
+  // same place: just keep walking — no seeking (seeking can trigger mid-roll ads and breaks the flow)
+  try{ pl.unMute(); }catch(e){} vidVolume(); try{ pl.playVideo(); }catch(e){}
   YV.shown = true; M.active = 'video'; vidCredit(key); viewBtn();
-  await ctx.sleep(1100); fade.classList.remove('on');
   return true;
 }
 function videoHide(){
@@ -1918,6 +1921,8 @@ window.WCAdapter = {
   map:{ setRoute, flyTo, orbit, stopOrbit, highlight,
     setTour(sc){ M.tourId = sc.id || ''; M.tourDest = sc.title || ''; },
     duck(on){ YV.ducked = on; vidVolume(); },
+    onPause(){ if(YV.shown){ try{ YV.player.pauseVideo(); }catch(e){} } },
+    onResume(){ if(YV.shown){ try{ YV.player.playVideo(); }catch(e){} } },
     wantsAmbient(){ return M.mode !== 'video'; } },
   ai:{ generate, refine }
 };
@@ -2241,7 +2246,7 @@ function showCard(i){
 function setPlayIcon(){ $('#playBtn').textContent = P.playing ? '❚❚' : '▶'; }
 
 async function playFrom(i, j){
-  const my = ++P.token; P.playing = true; setPlayIcon(); Speech.stop();
+  const my = ++P.token; P.playing = true; setPlayIcon(); Speech.stop(); try{ const m = api().map; m.onResume && m.onResume(); }catch(e){}
   const live = () => P.token===my;
   const A = api();
   for(P.i=i; P.i<P.script.stops.length; P.i++, j=0){
@@ -2268,7 +2273,7 @@ async function playFrom(i, j){
   P.playing = false; P.i = P.script.stops.length-1; setPlayIcon(); A.map.stopOrbit && A.map.stopOrbit();
   $('#subName').textContent = 'WanderCast'; $('#subLine').textContent = t('end'); Amb.stop();
 }
-function pause(){ P.token++; P.playing = false; Speech.stop(); setPlayIcon(); $('#spk').classList.remove('talk'); api().map.stopOrbit && api().map.stopOrbit(); }
+function pause(){ P.token++; P.playing = false; Speech.stop(); try{ const m = api().map; m.onPause && m.onPause(); }catch(e){} setPlayIcon(); $('#spk').classList.remove('talk'); api().map.stopOrbit && api().map.stopOrbit(); }
 function jump(i){ if(!P.script) return; i = Math.max(0, Math.min(P.script.stops.length-1, i)); P.flown = -1; Speech.prime(); playFrom(i, 0); }
 
 async function startTour(script){
