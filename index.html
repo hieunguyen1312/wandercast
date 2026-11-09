@@ -218,6 +218,14 @@ details.adv .sec:first-of-type{margin-top:10px}
 #itin.collapsed #itinList{display:none}
 #itin header b::after{content:" ▾";color:var(--mut);font-weight:400}
 #itin.collapsed header b::after{content:" ▸"}
+
+#vid{overflow:hidden;background:#000}
+#vid .vwrap{position:absolute;left:50%;top:50%;width:max(100vw,177.78vh);height:max(100vh,56.25vw);transform:translate(-50%,-50%);pointer-events:none}
+#vid .vwrap iframe,#vid #ytp{width:100%;height:100%;border:0}
+#vfade{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .35s;pointer-events:none}
+#vfade.on{opacity:1}
+#vidCredit{position:absolute;top:96px;left:14px;z-index:19;font-size:12px;color:#e9eefc;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;text-decoration:none}
+#vidCredit:hover{text-decoration:underline}
 </style></head><body>
 <div id="app">
   <div id="stage"></div>
@@ -287,7 +295,7 @@ details.adv .sec:first-of-type{margin-top:10px}
 
       <div class="sec">
   <label data-t="mapMode">Chế độ bản đồ</label>
-  <div class="seg" id="mapSeg" style="flex-wrap:wrap"><button data-v="pano" class="on" data-l="pano">🚶 Đi vào 360°</button><button data-v="sat" data-l="sat">🛰️ Vệ tinh 3D</button><button data-v="sv" data-l="sv">🔑 Street View đi bộ</button><button data-v="g3d" data-l="g3d">🔑 Google 3D</button></div>
+  <div class="seg" id="mapSeg" style="flex-wrap:wrap"><button data-v="video" class="on" data-l="video">🎥 Video đi bộ</button><button data-v="pano" data-l="pano">🚶 Đi vào 360°</button><button data-v="sat" data-l="sat">🛰️ Vệ tinh 3D</button><button data-v="sv" data-l="sv">🔑 Street View đi bộ</button><button data-v="g3d" data-l="g3d">🔑 Google 3D</button></div>
   <div class="note" id="mapNote"></div>
 </div>
 
@@ -1238,7 +1246,9 @@ const R = Math.PI/180;
 const M = { ready:null, ok:false, map:null, agent:null, pins:[], mode:'sat', active:'sat', raf:0, hold:0, sv:null, svSvc:null, m3d:null, g:null, tour:false, idle:0, walkAt:0 };
 
 const L = {
-  vi:{pano:'🚶 Đi vào 360°',sat:'🛰️ Vệ tinh 3D',sv:'🔑 Street View đi bộ',g3d:'🔑 Google 3D',
+  vi:{video:'🎥 Video đi bộ', toVideo:'🎥 Xem video', vErr:'Video này không phát được ở đây, chuyển sang 360°.',
+    nvideo:'Video đi bộ thật quay sẵn (YouTube walking tour) cho từng điểm đến, tiếng phố nhỏ ở nền và tự hạ khi host nói. Mỗi điểm dừng tua tới một đoạn khác của chuyến đi. Nơi chưa có video thì tự chuyển sang 360°.',
+    pano:'🚶 Đi vào 360°',sat:'🛰️ Vệ tinh 3D',sv:'🔑 Street View đi bộ',g3d:'🔑 Google 3D',
     npano:'Miễn phí, không cần key: agent bay tới rồi đáp xuống góc nhìn 360° ngoài đường phố (ảnh Google Street View). Điểm gần nhau thì tự đi bộ theo đường phố thật; tới nơi thì đứng ngắm và xoay nhìn quanh trong lúc host kể. Kéo chuột để tự nhìn (app sẽ đứng yên chờ bạn). Nơi nào không có ảnh 360°, bấm nút 🛰️ để xem vệ tinh.',
     toMap:'🛰️ Xem vệ tinh', toPano:'🚶 Vào 360°', noMap:'Không tải được bản đồ ở đây (khung xem trước có thể chặn). Podcast vẫn phát. Để xem bản đồ và 360°, hãy tải file về máy rồi mở bằng Edge hoặc Chrome.',
     nsat:'Miễn phí, không cần key: ảnh vệ tinh Esri + địa hình 3D. Giữ chuột phải (hoặc Ctrl + kéo) để xoay, nghiêng.',
@@ -1249,7 +1259,9 @@ const L = {
     refine:'Chính xác hoá toạ độ bằng OpenStreetMap',saved:'Đã lưu',needKey:'Chế độ này cần Google Maps API key → mở "Cài đặt nâng cao". Tạm dùng vệ tinh.',
     noSv:'Không có Street View gần', useSat:'→ dùng vệ tinh', gFail:'Google Maps từ chối key (kiểm tra key, API đã bật, giới hạn website). Tạm dùng vệ tinh.',
     wiki:'Chưa có Gemini key → đang ghép kịch bản từ Wikipedia…', geo:'Đang chốt toạ độ chính xác', notFound:'Không tìm thấy địa điểm này', few:'Wikipedia có quá ít bài viết quanh địa điểm này'},
-  en:{pano:'🚶 Walk-in 360°',sat:'🛰️ Satellite 3D',sv:'🔑 Street View walk',g3d:'🔑 Google 3D',
+  en:{video:'🎥 Walking video', toVideo:'🎥 Watch video', vErr:'This video cannot play here, switching to 360°.',
+    nvideo:'Real pre-recorded walking videos (YouTube walking tours) for each destination, with quiet street sound that dips when the hosts talk. Each stop jumps to a different part of the walk. Places without a video fall back to 360°.',
+    pano:'🚶 Walk-in 360°',sat:'🛰️ Satellite 3D',sv:'🔑 Street View walk',g3d:'🔑 Google 3D',
     npano:'Free, no key: the agent flies there, then drops into a 360° street-level view (Google Street View imagery). Nearby stops are reached on foot along real streets; at each stop the agent looks around while the hosts talk. Drag to look around (the walk pauses for you). If a spot has no 360° imagery, press 🛰️ for satellite.',
     toMap:'🛰️ Satellite view', toPano:'🚶 Enter 360°', noMap:'The map could not load here (this preview may block it). The podcast still plays. Download the file and open it in Edge or Chrome for the map and 360°.',
     nsat:'Free, no key: Esri satellite imagery + 3D terrain. Right-drag (or Ctrl + drag) to rotate and tilt.',
@@ -1324,6 +1336,7 @@ function initMap(){
 }
 function showLayer(which){
   if(which!=='pano' && PV.shown) panoHide();
+  if(which!=='video' && which!=='sat' && YV.shown) videoHide();
   M.active = which;
   $('#gsv').classList.toggle('hidden', which!=='sv');
   $('#g3d').classList.toggle('hidden', which!=='g3d');
@@ -1416,13 +1429,14 @@ async function g3dFly(stop){
 /* ---------- orbit / walk ---------- */
 function stopOrbit(){
   if(!M.ok) return;
-  PV.walkTok++; stopStroll();
+  PV.walkTok++; stopStroll(); if(YV.shown){ try{ YV.player.pauseVideo(); }catch(e){} }
   cancelAnimationFrame(M.raf); M.raf = 0;
   if(M.m3d){ try{ M.m3d.stopCameraAnimation && M.m3d.stopCameraAnimation(); }catch(e){} }
 }
 function orbit(stop){
   if(!M.ok) return;
   stopOrbit();
+  if(M.active==='video'){ try{ YV.player.playVideo(); }catch(e){} return; }
   if(M.active==='pano'){ startStroll(stop); return; }
   if(M.active==='g3d' && M.m3d){
     const camera = { center:{lat:stop.lat, lng:stop.lng, altitude:40}, tilt:66, range:700, heading:stop.heading||0 };
@@ -1630,10 +1644,94 @@ function startStroll(stop){
   })();
 }
 
+/* ---------- real walking videos (YouTube walking tours, official embedded player) ---------- */
+const VIDEOS = {
+  hoian:['cm50M7kCV98','World Wanderings'], hanoi:['xId3cHWsta4','World Wanderings'], hue:['jFXPTucswWo','POPtravel'], halong:['Vl7YOcQUZz4','Lais'],
+  saigon:['_Rc-sSE29Vc','4K WORLD TOUR'], dalat:['Iye9fEeQQ9c','Walking Asia'], ninhbinh:['FKBEOQPLecE','GlobalWalk Tours'], sapa:['Xl3brTglZT8','Random Walking Tours'],
+  cantho:['zJOkkiONfVo','POPtravel'], phuquoc:['zxfkKABkglQ','Walkscapes'], kyoto:['SKJG4xqdH_0','Ambient Exploration'], paris:['6BPuGeS6O4w','HP Walking Tours'],
+  rome:['cH1E97JIyUo','HP Walking Tours'], cairo:['2mGAKmK2zTk','World Wanderings'], giza:['EaQr917lRgI','Prowalk Tours'], luxor:['XybWba5c6D8','Gimbal Walk TV'],
+  newyork:['1aedKShR1rA','WALKS and the CITY'], seoul:['unY9hqu9bEk','Walking OZ'], bangkok:['3CRJWy5zXvg','HP Walking Tours'], bali:['b4VLlbM_qHI','HP Walking Tours'],
+  london:['8WlUiln-VeY','HP Walking Tours'], greatwall:['cVmM6sUcdwg','Footprint'], tajmahal:['7WJNuThYCCU','APR World Travel'], petra:['J4NMLfsd5tU','Prowalk Tours'],
+  chichen:['DqqQzs5W6Co','TRAVOH'], machu:['zssO1ENPoI0','Mr Walking'], rio:['bmDS1pN0wo4','Prowalk Tours']
+};
+const TOUR_VIDEO = {
+  egypt: s => /karnak|luxor/i.test(s.geo) ? 'luxor' : (/khalili|cairo/i.test(s.geo) && !/giza/i.test(s.geo)) ? 'cairo' : 'giza',
+  wonders: s => /great wall|mutianyu/i.test(s.geo) ? 'greatwall' : /taj/i.test(s.geo) ? 'tajmahal' : /petra|khazneh/i.test(s.geo) ? 'petra'
+    : /colosseum/i.test(s.geo) ? 'rome' : /chichen/i.test(s.geo) ? 'chichen' : /machu/i.test(s.geo) ? 'machu' : 'rio'
+};
+const DEST_ALIAS = [[/h[ộo]i an/i,'hoian'],[/h[àa] ?n[ộo]i/i,'hanoi'],[/\bhu[ếe]\b/i,'hue'],[/h[ạa] ?long/i,'halong'],[/s[àa]i g[òo]n|h[ồo] ch[íi] minh|saigon/i,'saigon'],
+  [/[đd][àa] ?l[ạa]t/i,'dalat'],[/ninh b[ìi]nh|tr[àa]ng an|tam c[ốo]c/i,'ninhbinh'],[/sa ?pa|fansipan/i,'sapa'],[/c[ầa]n th[ơo]/i,'cantho'],[/ph[úu] qu[ốo]c/i,'phuquoc'],
+  [/kyoto/i,'kyoto'],[/paris/i,'paris'],[/\brom[ea]\b|vatican/i,'rome'],[/giza|pyramid|sphinx/i,'giza'],[/cairo/i,'cairo'],[/luxor|karnak/i,'luxor'],
+  [/new york|manhattan|brooklyn/i,'newyork'],[/seoul/i,'seoul'],[/bangkok/i,'bangkok'],[/bali|ubud/i,'bali'],[/london/i,'london'],[/great wall|mutianyu/i,'greatwall'],
+  [/taj mahal|agra/i,'tajmahal'],[/petra/i,'petra'],[/chich[eé]n/i,'chichen'],[/machu picchu|cusco/i,'machu'],[/rio de janeiro|corcovado/i,'rio']];
+function videoKey(stop){
+  const base = (M.tourId||'').replace(/-(vi|en)$/,'');
+  const m = TOUR_VIDEO[base]; if(typeof m === 'function') return m(stop);
+  if(VIDEOS[base]) return base;
+  const hay = (stop.geo||'')+' '+(stop.name||'')+' '+(M.tourDest||'');
+  for(const [re,k] of DEST_ALIAS) if(re.test(hay)) return k;
+  return null;
+}
+const YV = { api:null, player:null, key:null, shown:false, ducked:false, bad:{} };
+function loadYT(){
+  if(YV.api) return YV.api;
+  YV.api = new Promise((res, rej) => {
+    if(window.YT && window.YT.Player) return res();
+    const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { prev && prev(); res(); };
+    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { YV.api = null; rej(new Error('YouTube blocked')); }; document.head.appendChild(s);
+    setTimeout(() => rej(new Error('YouTube timeout')), 15000);
+  });
+  return YV.api;
+}
+async function ytPlayer(){
+  await loadYT(); if(YV.player && YV.player.loadVideoById) return YV.player;
+  return new Promise(res => {
+    YV.player = new YT.Player('ytp', { width:'100%', height:'100%',
+      playerVars:{ autoplay:1, controls:0, disablekb:1, fs:0, iv_load_policy:3, playsinline:1, rel:0 },
+      events:{
+        onReady: () => res(YV.player),
+        onStateChange: e => { if(e.data === 0){ try{ YV.player.seekTo(30, true); YV.player.playVideo(); }catch(_){} } },
+        onError: () => { YV.bad[YV.key] = true; if(YV.shown){ ctx.toast(l('vErr'), 'warn'); const s = M.curStop; videoHide(); if(s){ panoShow(s).then(() => orbit(s)); } } }
+      } });
+  });
+}
+function waitDuration(pl){ return new Promise(res => { const t0 = Date.now(); const tick = () => { const d = pl.getDuration && pl.getDuration(); if(d > 0 || Date.now()-t0 > 8000) return res(); setTimeout(tick, 200); }; tick(); }); }
+function vidVolume(){ try{ YV.player.setVolume(YV.ducked ? 7 : 26); }catch(e){} }
+function vidCredit(key){
+  const a = $('#vidCredit'); if(!a) return; const v = VIDEOS[key];
+  if(!v){ a.classList.add('hidden'); return; }
+  a.href = 'https://www.youtube.com/watch?v='+v[0]; a.textContent = '🎥 Video: '+v[1]+' · YouTube ↗'; a.classList.remove('hidden');
+}
+async function videoShow(stop, idx){
+  const key = videoKey(stop); if(!key || YV.bad[key]) return false;
+  let pl; try{ pl = await ytPlayer(); }catch(e){ console.warn(e); return false; }
+  const n = Math.max(1, (M.stops||[]).length); const frac = 0.06 + 0.84*((idx||0)/n);
+  const fade = $('#vfade'); fade.classList.add('on');
+  $('#vid').classList.remove('hidden'); await ctx.sleep(350);
+  if(YV.key !== key){ YV.key = key; pl.loadVideoById({ videoId:VIDEOS[key][0] }); await waitDuration(pl); }
+  const d = pl.getDuration() || 0; if(d > 90) pl.seekTo(Math.floor(d*frac), true);
+  try{ pl.unMute(); }catch(e){} vidVolume(); pl.playVideo();
+  YV.shown = true; M.active = 'video'; vidCredit(key); viewBtn();
+  await ctx.sleep(1100); fade.classList.remove('on');
+  return true;
+}
+function videoHide(){
+  if(!YV.shown) return; YV.shown = false;
+  $('#vid').classList.add('hidden'); try{ YV.player.pauseVideo(); }catch(e){}
+  if(M.active === 'video') M.active = 'sat'; const a = $('#vidCredit'); if(a) a.classList.add('hidden'); viewBtn();
+}
+async function panoFlow(stop, prev){
+  if(PV.shown && hav(PV.pos || prev || stop, stop) < 2.5){ await walkTo(stop); return; } // nearby: walk there for real
+  panoHide(); showLayer('sat');
+  preloadPano(stop, 0, true); // start loading the 360° view the moment we take off
+  await satFly(stop, prev, 17.4, prev ? 5500 : 3500); await panoShow(stop); PV.pos = {lat:stop.lat, lng:stop.lng};
+}
+
 function viewBtn(){
   const b = $('#viewBtn'); if(!b) return;
-  b.classList.toggle('hidden', !(M.tour && M.mode==='pano'));
-  b.textContent = PV.shown ? l('toMap') : l('toPano');
+  b.classList.toggle('hidden', !(M.tour && (M.mode==='pano' || M.mode==='video')));
+  b.textContent = (PV.shown || YV.shown) ? l('toMap') : (M.mode==='video' ? l('toVideo') : l('toPano'));
 }
 
 /* ---------- route ---------- */
@@ -1654,12 +1752,18 @@ async function flyTo(stop, idx, prev){
   await M.ready;
   if(!M.ok){ await ctx.sleep(1200); return; }
   stopOrbit(); M.hold = 0;
-  if(M.mode==='pano'){
-    if(PV.shown && hav(PV.pos || prev || stop, stop) < 2.5){ await walkTo(stop); return; } // nearby: walk there for real
-    panoHide(); showLayer('sat');
-    preloadPano(stop, 0, true); // start loading the 360° view the moment we take off
-    await satFly(stop, prev, 17.4, prev ? 5500 : 3500); await panoShow(stop); PV.pos = {lat:stop.lat, lng:stop.lng}; return;
+  M.curStop = stop; M.curIdx = idx;
+  if(M.mode==='video'){
+    const key = videoKey(stop);
+    if(key && !YV.bad[key]){
+      const sameVideo = YV.shown && key === YV.key;
+      if(!sameVideo){ panoHide(); videoHide(); showLayer('sat'); await satFly(stop, prev, 15.5, prev ? 5500 : 3500); }
+      if(await videoShow(stop, idx)) return;
+    }
+    videoHide(); await panoFlow(stop, prev); return;   // no video for this place: walk-in 360° instead
   }
+  if(M.mode==='pano'){ await panoFlow(stop, prev); return; }
+  videoHide();
   panoHide();
   if(M.mode==='sv'){ if(await svFly(stop, prev)) return; }
   else if(M.mode==='g3d'){ if(await g3dFly(stop)) return; }
@@ -1765,10 +1869,10 @@ function applyLang(lg){
 function noteMode(){ const n = $('#mapNote'); if(n) n.innerHTML = l('n'+M.mode); }
 function wireSettings(){
   const seg = $('#mapSeg');
-  M.mode = st('mapMode2','pano');
+  M.mode = st('mapMode3','video');
   seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v===M.mode));
   seg.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return;
-    M.mode = b.dataset.v; ss('mapMode2', M.mode); seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); noteMode();
+    M.mode = b.dataset.v; ss('mapMode3', M.mode); if(M.mode!=='video') videoHide(); seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); noteMode();
     if((M.mode==='sv'||M.mode==='g3d') && !(st('gmKey','')||'').trim()){ ctx.toast(l('needKey'),'warn',6000); $('details.adv').open = true; }
     if(M.mode!=='g3d' && M.mode!=='sv') showLayer('sat');
     viewBtn();
@@ -1785,7 +1889,8 @@ window.WCAdapter = {
     ctx = c;
     stage.innerHTML = '<div id="ml" class="layer"></div><div id="gsv" class="layer hidden"></div><div id="g3d" class="layer hidden"></div>'
       + '<div id="pano" class="layer hidden"><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><div id="pjs"></div></div>'
-      + '<button id="viewBtn" class="btn hidden"></button>';
+      + '<div id="vid" class="layer hidden"><div class="vwrap"><div id="ytp"></div></div><div id="vfade"></div></div>'
+      + '<button id="viewBtn" class="btn hidden"></button><a id="vidCredit" class="hidden" target="_blank" rel="noopener"></a>';
     wireSettings(); applyLang(c.lang());
     // wait for the map library: some viewers load it late (or block it); never crash the podcast
     M.ready = new Promise(res => {
@@ -1800,13 +1905,20 @@ window.WCAdapter = {
     // the user clicked/dragged inside the 360° view (focus moved into the iframe): stand still for 20s
     window.addEventListener('blur', () => { if(PV.shown){ PV.hold = Date.now()+20000; setTimeout(() => { try{ window.focus(); }catch(e){} }, 20000); } });
     $('#viewBtn').addEventListener('click', async () => {
-      const s = PV.stop; if(!s) return;
-      if(PV.shown){ panoHide(); M.map.jumpTo({center:[s.lng,s.lat], zoom:17, pitch:60, bearing:s.heading||0}); orbit(s); }
-      else { stopOrbit(); await panoShow(s); orbit(s); }
+      const s = M.curStop || PV.stop; if(!s) return;
+      const toMap = () => { M.map.jumpTo({center:[s.lng,s.lat], zoom:17, pitch:60, bearing:s.heading||0}); orbit(s); };
+      if(YV.shown){ videoHide(); toMap(); return; }
+      if(PV.shown){ panoHide(); toMap(); return; }
+      stopOrbit();
+      if(M.mode==='video' && await videoShow(s, M.curIdx||0)) return;
+      await panoShow(s); orbit(s);
     });
   },
   onLang(lg){ applyLang(lg); },
-  map:{ setRoute, flyTo, orbit, stopOrbit, highlight },
+  map:{ setRoute, flyTo, orbit, stopOrbit, highlight,
+    setTour(sc){ M.tourId = sc.id || ''; M.tourDest = sc.title || ''; },
+    duck(on){ YV.ducked = on; vidVolume(); },
+    wantsAmbient(){ return M.mode !== 'video'; } },
   ai:{ generate, refine }
 };
 })();
@@ -1940,6 +2052,7 @@ const Amb = {
   ctx:null, master:null, oscs:[], base:null,
   start(theme){
     if(!S.ambient) return;
+    try{ const m = window.WCAdapter && window.WCAdapter.map; if(m && m.wantsAmbient && !m.wantsAmbient()) return; }catch(e){}
     try{
       if(!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)();
       if(this.ctx.state==='suspended') this.ctx.resume();
@@ -1964,7 +2077,7 @@ const Amb = {
     const k = [1, 1.1225, .8909, 1.3348][i%4], now = this.ctx.currentTime;
     this.oscs.forEach(([o1,o2,f]) => { o1.frequency.setTargetAtTime(f*k, now, 1.2); o2.frequency.setTargetAtTime(f*k*1.003, now, 1.2); });
   },
-  duck(on){ if(this.master && this.ctx) this.master.gain.setTargetAtTime(on ? .028 : .05, this.ctx.currentTime, .4); },
+  duck(on){ try{ const m = window.WCAdapter && window.WCAdapter.map; m && m.duck && m.duck(on); }catch(e){} if(this.master && this.ctx) this.master.gain.setTargetAtTime(on ? .028 : .05, this.ctx.currentTime, .4); },
   stop(instant){
     if(!this.master || !this.ctx) return;
     const m = this.master, os = this.oscs, l = this.lfo, now = this.ctx.currentTime;
@@ -2162,6 +2275,7 @@ async function startTour(script){
   P.script = script; P.i = 0; P.j = 0; P.flown = -1;
   $('#lib').classList.add('hidden'); $('#lib').classList.add('over'); $('#itin').classList.remove('hidden'); $('#player').classList.remove('hidden'); $('#modeBadge').classList.remove('hidden');
   $('#app').classList.remove('panelOpen'); $('#app').classList.add('panelHidden');
+  api().map.setTour && api().map.setTour(script);
   api().map.setRoute(script.stops);
   renderItin(); Amb.start(curTheme());
   if(script.id){ try{ location.hash = script.id; }catch(e){} }
