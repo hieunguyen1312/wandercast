@@ -1,0 +1,2194 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WanderCast – AI lữ hành podcast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"><script defer src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<style>:root{
+  --bg:#0a0f1e; --panel:rgba(12,18,36,.86); --panel-solid:#0e1530; --line:rgba(255,255,255,.09);
+  --tx:#e9eefc; --mut:#93a0c2; --acc:#5eead4; --acc2:#a78bfa; --warn:#fbbf24; --err:#f87171;
+  --hostA:#5eead4; --hostB:#f9a8d4; --r:14px;
+  font-family:"Be Vietnam Pro",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+#app{position:fixed;inset:0}
+#stage{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,#13204a 0%,#060914 70%)}
+#stage>.layer{position:absolute;inset:0}
+.hidden{display:none!important}
+
+/* ---------- brand ---------- */
+#brand{position:absolute;top:14px;left:396px;z-index:20;display:flex;align-items:center;gap:10px;
+  background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:999px;padding:7px 14px 7px 8px}
+#brand .logo{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(from 200deg,var(--acc),var(--acc2),var(--acc));font-size:16px}
+#brand b{font-size:15px;letter-spacing:.2px}
+#brand small{color:var(--mut);font-size:12px}
+
+/* ---------- side panel ---------- */
+#panel{position:absolute;top:0;left:0;bottom:0;width:380px;z-index:30;background:var(--panel);
+  backdrop-filter:blur(14px);border-right:1px solid var(--line);display:flex;flex-direction:column}
+#panel header{padding:18px 18px 8px;display:flex;align-items:center;justify-content:space-between}
+#panel header h1{margin:0;font-size:18px}
+#panel header p{margin:2px 0 0;color:var(--mut);font-size:12.5px}
+#panelBody{flex:1;overflow:auto;padding:4px 18px 18px}
+#panelBody::-webkit-scrollbar{width:8px}#panelBody::-webkit-scrollbar-thumb{background:#ffffff1c;border-radius:8px}
+.sec{margin-top:16px}
+.sec>label,.lbl{display:block;font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center}
+.inp{width:100%;background:#ffffff0d;border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
+.inp:focus{border-color:var(--acc)}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
+select.inp option{background:var(--panel-solid)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:#ffffff08;border-radius:999px;padding:6px 11px;font-size:13px;cursor:pointer;user-select:none;transition:.15s}
+.chip:hover{border-color:#ffffff33}
+.chip.on{background:linear-gradient(135deg,#5eead433,#a78bfa33);border-color:var(--acc);color:#fff}
+.seg{display:flex;background:#ffffff0a;border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{flex:1;border:0;background:none;padding:7px 6px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--mut)}
+.seg button.on{background:#ffffff1a;color:#fff}
+.btn{border:1px solid var(--line);background:#ffffff10;border-radius:10px;padding:9px 12px;cursor:pointer;font-size:13.5px;white-space:nowrap}
+.btn:hover{background:#ffffff1c}
+.btn.icon{padding:9px 11px}
+.btn.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#06121f;font-weight:700}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.big{width:100%;padding:13px;font-size:15px;border-radius:12px}
+.note{font-size:12px;color:var(--mut);line-height:1.45;margin-top:6px}
+.note.warn{color:var(--warn)}
+.note a{color:var(--acc)}
+.range{width:100%;accent-color:var(--acc)}
+.voicebox{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.dot{width:10px;height:10px;border-radius:50%}
+.name-inp{width:74px;padding:8px}
+details.adv{margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#ffffff05}
+details.adv summary{cursor:pointer;font-size:13px;font-weight:600}
+details.adv .sec:first-of-type{margin-top:10px}
+#footStart{padding:14px 18px 18px;border-top:1px solid var(--line)}
+#genStatus{font-size:12.5px;color:var(--mut);margin-top:8px;min-height:18px;text-align:center}
+
+/* ---------- itinerary ---------- */
+#itin{position:absolute;top:14px;right:14px;z-index:20;width:300px;max-height:calc(100% - 200px);display:flex;flex-direction:column;
+  background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+#itin header{padding:12px 14px;border-bottom:1px solid var(--line)}
+#itin header b{display:block;font-size:14px}
+#itin header small{color:var(--mut);font-size:12px}
+#itinList{overflow:auto;padding:6px}
+.stopItem{display:flex;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;align-items:flex-start}
+.stopItem:hover{background:#ffffff0c}
+.stopItem.on{background:linear-gradient(135deg,#5eead422,#a78bfa22)}
+.stopItem .n{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:#ffffff14}
+.stopItem.on .n{background:var(--acc);color:#06121f}
+.stopItem.done .n{background:#ffffff30}
+.stopItem .t{font-size:13.5px;font-weight:600;line-height:1.3}
+.stopItem .f{font-size:12px;color:var(--mut);margin-top:2px;line-height:1.35}
+
+/* ---------- player ---------- */
+#player{position:absolute;left:396px;right:14px;bottom:14px;z-index:25;background:var(--panel);backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:18px;padding:12px 16px}
+#subtitle{display:flex;gap:12px;align-items:flex-start;min-height:52px}
+#spk{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;color:#06121f;background:var(--hostA)}
+#spk.B{background:var(--hostB)}
+#spk.talk{animation:talk .6s ease-in-out infinite alternate}
+@keyframes talk{from{box-shadow:0 0 0 0 #ffffff40}to{box-shadow:0 0 0 7px #ffffff00}}
+#subTxt{flex:1}
+#subName{font-size:12px;color:var(--mut);font-weight:600}
+#subLine{font-size:16px;line-height:1.45;margin-top:2px}
+#ctrl{display:flex;align-items:center;gap:8px;margin-top:10px}
+#ctrl .btn{border-radius:999px}
+#playBtn{width:46px;height:46px;border-radius:50%!important;padding:0;font-size:18px}
+#prog{flex:1;display:flex;gap:4px;align-items:center;margin:0 8px}
+#prog i{flex:1;height:5px;border-radius:5px;background:#ffffff18;cursor:pointer;position:relative;overflow:hidden}
+#prog i.done{background:#ffffff55}
+#prog i.on{background:#ffffff18}
+#prog i.on::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .3s}
+#stopTitle{font-size:12.5px;color:var(--mut);min-width:0;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- stop card ---------- */
+#card{position:absolute;left:396px;bottom:150px;z-index:21;max-width:380px;background:var(--panel);backdrop-filter:blur(12px);
+  border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;transform:translateY(10px);opacity:0;transition:.4s}
+#card.show{transform:none;opacity:1}
+#card .k{font-size:11.5px;color:var(--acc);font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+#card h3{margin:4px 0 6px;font-size:19px}
+#card p{margin:0;color:#cdd6f1;font-size:13.5px;line-height:1.45}
+
+/* ---------- welcome ---------- */
+#welcome{position:absolute;left:380px;right:0;top:0;bottom:0;z-index:15;display:grid;place-items:center;pointer-events:none}
+#welcome .box{text-align:center;max-width:560px;padding:24px;pointer-events:auto}
+#welcome h2{font-size:34px;margin:0 0 10px;line-height:1.15}
+#welcome h2 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+#welcome p{color:#c3cbe6;font-size:15px;line-height:1.55;margin:0 0 18px}
+#welcome .chips{justify-content:center}
+
+/* ---------- agent marker ---------- */
+.agent{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:22px;pointer-events:none;
+  background:radial-gradient(circle,#ffffff 0 40%,transparent 41%),conic-gradient(var(--acc),var(--acc2),var(--acc));
+  box-shadow:0 0 0 4px #5eead455,0 6px 18px #0008;animation:pulse 1.8s ease-out infinite}
+.agent span{filter:drop-shadow(0 1px 1px #0004)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #5eead4aa,0 6px 18px #0008}100%{box-shadow:0 0 0 22px #5eead400,0 6px 18px #0008}}
+.pin{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#06121f;
+  background:#fff;border:3px solid var(--acc2);box-shadow:0 3px 10px #0007;cursor:pointer}
+.pin.on{background:var(--acc);border-color:#fff}
+
+/* ---------- modal / toast ---------- */
+#toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+#toast div{background:#111a36f2;border:1px solid var(--line);padding:9px 14px;border-radius:10px;font-size:13px;max-width:520px;box-shadow:0 8px 24px #0007}
+#toast div.warn{border-color:#fbbf2466}
+#toast div.err{border-color:#f8717166}
+#modeBadge{position:absolute;top:62px;left:396px;z-index:19;font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+#menuBtn{display:none}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #ffffff33;border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- mobile ---------- */
+@media (max-width:860px){
+  #panel{width:100%;max-width:420px;transform:translateX(-100%);transition:.3s;box-shadow:0 0 40px #000a}
+  #app.panelOpen #panel{transform:none}
+  #brand,#player,#card,#modeBadge{left:12px}
+  #brand{top:12px}
+  #menuBtn{display:inline-block;position:absolute;top:12px;right:12px;z-index:31}
+  #itin{top:60px;right:12px;width:min(300px,calc(100% - 24px));max-height:38%}
+  #itin.collapsed #itinList{display:none}
+  #player{right:12px;bottom:12px;padding:10px 12px}
+  #subLine{font-size:14.5px}
+  #card{bottom:160px;right:12px;max-width:none}
+  #welcome{left:0}
+  #welcome h2{font-size:26px}
+  #stopTitle{display:none}
+}
+.maplibregl-ctrl-bottom-right{bottom:150px!important}
+.maplibregl-ctrl-attrib{font-size:10px}
+#welcome h2,#welcome p{text-shadow:0 2px 12px #000c,0 0 2px #000}
+#welcome h2 span{text-shadow:none;filter:drop-shadow(0 2px 8px #000a)}
+
+/* ---------- library ---------- */
+#lib{position:absolute;left:380px;right:0;top:0;bottom:0;z-index:26;overflow:auto;padding:70px 28px 28px}
+#lib.over{background:linear-gradient(180deg,#060914ee,#060914f6)}
+#lib .libBox{max-width:1060px;margin:0 auto}
+#lib .hero{text-align:center;margin:10px auto 26px;max-width:620px}
+#lib.over .hero{display:none}
+#lib h2{font-size:34px;margin:0 0 10px;line-height:1.15;text-shadow:0 2px 12px #000c}
+#lib h2 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 8px #000a)}
+#lib .hero p{color:#c3cbe6;font-size:15px;line-height:1.55;margin:0;text-shadow:0 2px 10px #000}
+.libHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.libHead b{font-size:17px;text-shadow:0 2px 8px #000}
+#libClose{visibility:hidden}
+#lib.over #libClose{visibility:visible}
+#libFilters{margin-bottom:14px}
+#libGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.tcard{display:flex;gap:12px;align-items:flex-start;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer;transition:.15s;position:relative}
+.tcard:hover{border-color:#5eead488;transform:translateY(-2px)}
+.tcard.focus{border-color:var(--acc);box-shadow:0 0 0 3px #5eead433}
+.tcard .te{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:26px;background:linear-gradient(135deg,#5eead422,#a78bfa33)}
+.tcard .tb{flex:1;min-width:0}
+.tcard .tt{font-weight:700;font-size:14.5px;line-height:1.3}
+.tcard .td{font-size:12px;color:var(--mut);margin-top:3px}
+.tcard .tsum{font-size:12.5px;color:#c9d1ec;margin-top:6px;line-height:1.4}
+.tcard .ttags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tcard .ttags span{font-size:11px;padding:2px 8px;border-radius:999px;background:#ffffff10;color:#cfd6f2}
+.tcard .tplay{flex:none;width:38px;height:38px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#06121f;font-weight:800;cursor:pointer;align-self:center}
+.tcard .tdel{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--mut);cursor:pointer;font-size:13px}
+.libEmpty{color:var(--mut);font-size:13.5px;padding:18px;text-align:center;grid-column:1/-1}
+.orLine{text-align:center;color:var(--mut);font-size:12px;margin:12px 0 0;position:relative}
+@media (max-width:860px){ #lib{left:0;padding:64px 12px 12px} #lib h2{font-size:26px} #libGrid{grid-template-columns:1fr} }
+
+#mapSeg button{flex:1 1 45%}
+#pano iframe{position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .8s ease;pointer-events:none}
+#pano iframe.on{pointer-events:auto}
+#pano iframe.on{opacity:1}
+#viewBtn{position:absolute;right:14px;bottom:190px;z-index:22;border-radius:999px;background:var(--panel);backdrop-filter:blur(10px)}
+.cardLink{display:inline-block;margin-top:8px;font-size:12.5px;color:var(--acc);text-decoration:none;font-weight:600}
+.cardLink:hover{text-decoration:underline}
+@media (max-width:860px){ #viewBtn{bottom:170px;right:12px} }
+
+@media (min-width:861px){
+  #panel{transition:transform .3s}
+  #brand,#player,#card,#modeBadge,#lib{transition:left .3s}
+  #app.panelHidden #panel{transform:translateX(-100%)}
+  #app.panelHidden #brand{left:70px}
+  #app.panelHidden #player,#app.panelHidden #card,#app.panelHidden #modeBadge{left:14px}
+  #app.panelHidden #lib{left:0}
+  #app.panelHidden #menuBtn{display:inline-block;position:absolute;top:14px;left:14px;right:auto;z-index:31;border-radius:999px;background:var(--panel)}
+  #app.panelHidden #menuBtn span{display:none}
+}
+#itin header{cursor:pointer}
+#itin.collapsed #itinList{display:none}
+#itin header b::after{content:" ▾";color:var(--mut);font-weight:400}
+#itin.collapsed header b::after{content:" ▸"}
+</style></head><body>
+<div id="app">
+  <div id="stage"></div>
+
+  <div id="brand"><div class="logo">🧭</div><div><b>WanderCast</b> <small data-t="tagline">AI lữ hành · podcast vòng quanh thế giới</small></div></div>
+  <div id="modeBadge" class="hidden"></div>
+  <button id="menuBtn" class="btn">☰ <span data-t="customize">Tuỳ chỉnh</span></button>
+
+  <div id="lib">
+    <div class="libBox">
+      <div class="hero" id="hero">
+        <h2 data-t="wTitle">Đi bất cứ đâu,<br><span>nghe như một podcast</span></h2>
+        <p data-t="wSub">Chọn điểm đến, chủ đề và phong cách. AI agent sẽ bay tới từng điểm dừng trên bản đồ và hai host kể chuyện cho bạn nghe.</p>
+      </div>
+      <div class="libHead"><b data-t="libTitle">📚 Thư viện tour có sẵn</b><button class="btn icon" id="libClose" title="Đóng">✕</button></div>
+      <div class="chips" id="libFilters"></div>
+      <div id="libGrid"></div>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <header>
+      <div><h1 data-t="plan">Lên hành trình</h1><p data-t="planSub">Tuỳ biến nội dung, giọng đọc và bản đồ</p></div>
+      <div class="seg" id="langSeg" style="width:96px"><button data-v="vi" class="on">VI</button><button data-v="en">EN</button></div>
+    </header>
+    <div id="panelBody">
+      <button class="btn big" id="libOpen" style="margin-top:4px" data-t="libOpen">📚 Chọn tour có sẵn (nghe ngay)</button>
+      <div class="orLine" data-t="orMake">hoặc tự tạo tour mới bằng AI</div>
+      <div class="sec" style="margin-top:4px">
+        <label data-t="dest">Điểm đến</label>
+        <div class="row">
+          <input id="dest" class="inp" placeholder="Hội An, Kyoto, Paris, Machu Picchu…" autocomplete="off">
+          <button class="btn icon" id="diceBtn" title="Ngẫu nhiên">🎲</button>
+        </div>
+        <div class="chips" id="destChips" style="margin-top:8px"></div>
+      </div>
+
+      <div class="sec">
+        <label data-t="topic">Chủ đề</label>
+        <div class="chips" id="topicChips"></div>
+        <input id="topicCustom" class="inp" style="margin-top:8px" data-tp="topicPh" placeholder="Hoặc tự gõ chủ đề: ví dụ 'cà phê và giới trẻ'">
+      </div>
+
+      <div class="sec">
+        <label data-t="theme">Phong cách / theme</label>
+        <div class="chips" id="themeChips"></div>
+      </div>
+
+      <div class="sec">
+        <label data-t="format">Định dạng</label>
+        <div class="seg" id="fmtSeg"><button data-v="duo" class="on" data-t="duo">🎙️ 2 host</button><button data-v="solo" data-t="solo">🎧 1 hướng dẫn viên</button></div>
+        <div class="row" style="margin-top:8px">
+          <div style="flex:1"><span class="lbl" data-t="stops">Số điểm dừng</span>
+            <div class="seg" id="stopSeg"><button data-v="3">3</button><button data-v="5" class="on">5</button><button data-v="7">7</button></div></div>
+          <div style="flex:1"><span class="lbl" data-t="len">Độ dài</span>
+            <div class="seg" id="lenSeg"><button data-v="s" data-t="lenS">Ngắn</button><button data-v="m" class="on" data-t="lenM">Vừa</button><button data-v="l" data-t="lenL">Dài</button></div></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <label data-t="voices">Giọng đọc</label>
+        <div class="voicebox"><span class="dot" style="background:var(--hostA)"></span><select id="voiceA" class="inp"></select><input id="nameA" class="inp name-inp" value="Nam"></div>
+        <div class="voicebox" id="voiceBRow"><span class="dot" style="background:var(--hostB)"></span><select id="voiceB" class="inp"></select><input id="nameB" class="inp name-inp" value="Mai"></div>
+        <div class="row"><span class="lbl" style="margin:0;white-space:nowrap" data-t="speed">Tốc độ</span><input type="range" id="rate" class="range" min="0.7" max="1.4" step="0.05" value="1"><button class="btn" id="testVoice" data-t="test">▶ Nghe thử</button></div>
+        <div class="note warn hidden" id="voiceWarn"></div>
+      </div>
+
+      <div class="sec">
+  <label data-t="mapMode">Chế độ bản đồ</label>
+  <div class="seg" id="mapSeg" style="flex-wrap:wrap"><button data-v="pano" class="on" data-l="pano">🚶 Đi vào 360°</button><button data-v="sat" data-l="sat">🛰️ Vệ tinh 3D</button><button data-v="sv" data-l="sv">🔑 Street View đi bộ</button><button data-v="g3d" data-l="g3d">🔑 Google 3D</button></div>
+  <div class="note" id="mapNote"></div>
+</div>
+
+
+      <details class="adv">
+        <summary data-t="adv">⚙️ Cài đặt nâng cao</summary>
+        <div class="sec">
+  <label data-l="gem">Gemini API key</label>
+  <input id="gemKey" type="password" class="inp" placeholder="AIza…" autocomplete="off">
+  <div class="note" data-l="gemN"></div>
+</div>
+<div class="sec">
+  <label data-l="model">Gemini model</label>
+  <select id="gemModel" class="inp">
+    <option value="gemini-flash-latest">gemini-flash-latest (auto)</option>
+    <option value="gemini-3.7-flash">gemini-3.7-flash</option>
+    <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+    <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
+  </select>
+</div>
+<div class="sec">
+  <label data-l="gm">Google Maps API key</label>
+  <input id="gmKey" type="password" class="inp" placeholder="AIza…" autocomplete="off">
+  <div class="note" data-l="gmN"></div>
+</div>
+<div class="sec">
+  <label class="row" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx);cursor:pointer"><input type="checkbox" id="refine" checked style="accent-color:var(--acc)"> <span data-l="refine">Chính xác hoá toạ độ bằng OpenStreetMap</span></label>
+</div>
+
+        <div class="sec">
+          <label class="row" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx);cursor:pointer"><input type="checkbox" id="ambient" checked style="accent-color:var(--acc)"> <span data-t="ambient">Nhạc nền ambient theo theme</span></label>
+        </div>
+      </details>
+    </div>
+    <div id="footStart">
+      <button class="btn pri big" id="startBtn" data-t="start">✈️ Bắt đầu hành trình</button>
+      <div id="genStatus"></div>
+    </div>
+  </aside>
+
+  <section id="itin" class="hidden">
+    <header><b id="tourTitle">—</b><small id="tourSum"></small></header>
+    <div id="itinList"></div>
+  </section>
+
+  <div id="card"><div class="k" id="cardK"></div><h3 id="cardH"></h3><p id="cardP"></p><a id="cardLink" class="cardLink" target="_blank" rel="noopener"></a></div>
+
+  <section id="player" class="hidden">
+    <div id="subtitle">
+      <div id="spk">A</div>
+      <div id="subTxt"><div id="subName"></div><div id="subLine"></div></div>
+    </div>
+    <div id="ctrl">
+      <button class="btn icon" id="prevBtn" title="Điểm trước">⏮</button>
+      <button class="btn pri" id="playBtn">▶</button>
+      <button class="btn icon" id="nextBtn" title="Điểm sau">⏭</button>
+      <div id="prog"></div>
+      <div id="stopTitle"></div>
+      <button class="btn icon" id="libBtn" title="Thư viện tour">📚</button>
+      <button class="btn icon" id="newBtn" title="Hành trình mới">✚</button>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+</div>
+
+<script>window.WC_TOURS = (window.WC_TOURS||[]).concat([
+{id:'hoian-vi',lang:'vi',e:'🏮',region:'vn',theme:'chill',aud:['all','relax'],title:'Hội An lúc lên đèn',dest:'Hội An',hosts:['Nam','Mai'],
+ sum:'Một vòng chill qua phố cổ, ẩm thực và sông Hoài khi đèn lồng vừa thắp.',stops:[
+ ['Chùa Cầu','Japanese Covered Bridge, Hoi An, Vietnam',15.87711,108.32602,90,'Cây cầu gỗ in trên tờ tiền polymer 20.000 đồng.',[
+  'A|Xin chào các bạn, đây là WanderCast, podcast đưa bạn đi khắp thế giới mà không cần xếp hành lý. Mình là Nam.',
+  'B|Còn mình là Mai. Hôm nay tụi mình hạ cánh xuống phố cổ Hội An, đúng lúc những chiếc đèn lồng đầu tiên được thắp lên.',
+  'A|Ngay bên dưới chúng ta là Chùa Cầu, cây cầu gỗ có mái ngói cong mà bạn từng thấy trên tờ tiền hai mươi nghìn đồng.',
+  'B|Người ta kể rằng cầu do cộng đồng thương nhân Nhật Bản dựng vào khoảng thế kỷ mười bảy. Một đầu cầu có tượng khỉ, đầu kia có tượng chó, nhìn rất đáng yêu.',
+  'A|Có một truyền thuyết vui: cây cầu được dựng như thanh gươm trấn lưng con thủy quái Mamazu, để nó không vùng vẫy gây động đất.']],
+ ['Hội quán Phúc Kiến','Phuc Kien Assembly Hall, Hoi An, Vietnam',15.87727,108.33027,10,'Hội quán của người Hoa gốc Phúc Kiến, thờ Thiên Hậu Thánh Mẫu.',[
+  'A|Mình bay dọc đường Trần Phú, nơi những mái nhà rêu phong nối nhau, tới cánh cổng tam quan rực rỡ của Hội quán Phúc Kiến.',
+  'B|Đây là nơi sinh hoạt của cộng đồng người Hoa gốc Phúc Kiến. Họ thờ Thiên Hậu Thánh Mẫu, vị thần phù hộ cho những người đi biển.',
+  'A|Bạn ngẩng lên sẽ thấy những vòng nhang xoắn treo lơ lửng, cháy âm ỉ suốt nhiều ngày. Mỗi vòng là một lời cầu nguyện của ai đó.',
+  'B|Hội An từng là thương cảng sầm uất, thuyền buôn Nhật, Hoa, Bồ Đào Nha, Hà Lan đều ghé. Mấy hội quán này chính là dấu vết của thời hoàng kim đó.']],
+ ['Chợ Hội An','Hoi An Central Market, Hoi An, Vietnam',15.87675,108.33063,200,'Cao lầu chuẩn vị được cho là phải dùng nước giếng Bá Lễ.',[
+  'A|Bụng bắt đầu réo rồi, nên điểm tiếp theo phải là chợ Hội An.',
+  'B|Đây là thiên đường của cao lầu. Sợi mì vàng, dai, ăn cùng thịt xíu, tóp mỡ giòn và rau sống Trà Quế. Người Hội An hay nói cao lầu ngon phải dùng nước giếng Bá Lễ.',
+  'A|Còn có mì Quảng, bánh xèo, cơm gà, và món mình mê nhất là bánh mì Hội An, giòn rụm mà nhân đầy ắp.',
+  'B|Nhớ gọi thêm một ly nước mót, pha từ lá chanh, sả, quế và cam thảo. Uống vào mát tới tận tim.']],
+ ['Nhà cổ Tấn Ký','Tan Ky Old House, Hoi An, Vietnam',15.87653,108.32898,180,'Ngôi nhà gỗ hơn hai trăm năm tuổi, nhiều đời một dòng họ sinh sống.',[
+  'A|Giờ chúng ta hạ thấp độ cao, len vào con phố Nguyễn Thái Học để ghé nhà cổ Tấn Ký.',
+  'B|Ngôi nhà gỗ này đã hơn hai trăm năm tuổi, và nhiều đời trong cùng một dòng họ vẫn sống ở đây. Kiến trúc pha trộn nét Việt, Hoa và Nhật.',
+  'A|Trên vách có những vạch đánh dấu mực nước lũ qua các năm. Mùa mưa, nước sông Hoài có khi dâng vào tận trong nhà.',
+  'B|Vậy mà người Hội An vẫn bình thản, chuyển đồ lên gác, đợi nước rút rồi lau dọn. Sống chung với lũ là một phần của phố cổ.']],
+ ['Sông Hoài','Hoai River, Hoi An, Vietnam',15.87566,108.32852,250,'Thả hoa đăng trên sông Hoài là nghi thức cầu may.',[
+  'A|Điểm dừng cuối, chúng ta lượn xuống mặt sông Hoài, nơi hàng trăm chiếc hoa đăng đang trôi lững lờ.',
+  'B|Mỗi chiếc hoa đăng là một lời ước. Vào đêm rằm, phố cổ còn tắt bớt đèn điện để chỉ còn ánh đèn lồng, đẹp như một giấc mơ.',
+  'A|Tiếng hò khoan văng vẳng, tiếng mái chèo khua nước. Hội An được UNESCO công nhận là Di sản Văn hóa Thế giới từ năm 1999, và nhìn cảnh này thì hiểu vì sao.',
+  'B|Cảm ơn các bạn đã đồng hành cùng WanderCast. Hẹn gặp lại ở một góc khác của thế giới nhé!']]]},
+
+{id:'hanoi-vi',lang:'vi',e:'🐢',region:'vn',theme:'expert',aud:['student','all'],title:'Hà Nội nghìn năm trong một buổi chiều',dest:'Hà Nội',hosts:['Nam','Mai'],
+ sum:'Đi xuyên các lớp lịch sử của Thủ đô, từ thời Lý tới thời hiện đại.',stops:[
+ ['Hồ Hoàn Kiếm','Hoan Kiem Lake, Hanoi, Vietnam',21.02874,105.85232,0,'Tháp Rùa giữa hồ được xây vào khoảng năm 1886.',[
+  'A|Chào mừng các bạn tới WanderCast. Mình là Nam, và hôm nay tụi mình đi xuyên một nghìn năm lịch sử Hà Nội chỉ trong một buổi chiều.',
+  'B|Mình là Mai. Điểm xuất phát là trái tim của thành phố, hồ Hoàn Kiếm, với Tháp Rùa nhỏ xinh giữa mặt nước.',
+  'A|Truyền thuyết kể rằng sau khi đánh thắng quân Minh, vua Lê Lợi dạo thuyền trên hồ thì Rùa Vàng nổi lên đòi lại thanh gươm thần. Từ đó hồ mang tên Hoàn Kiếm, nghĩa là trả gươm.',
+  'B|Còn Tháp Rùa mà bạn thấy được xây vào khoảng năm 1886. Sáng sớm quanh hồ là cả một thế giới: người tập dưỡng sinh, nhảy aerobic, đánh cầu lông.']],
+ ['Đền Ngọc Sơn','Ngoc Son Temple, Hanoi, Vietnam',21.03069,105.85237,30,'Cầu Thê Húc sơn đỏ, tên có nghĩa là nơi đậu ánh sáng ban mai.',[
+  'A|Mình bay sang phía bắc hồ, nơi cây cầu gỗ sơn đỏ cong cong dẫn vào đền Ngọc Sơn.',
+  'B|Đó là cầu Thê Húc, tên có nghĩa là nơi đậu ánh sáng ban mai. Đền thờ Văn Xương Đế Quân, vị thần văn chương, và Đức Thánh Trần Hưng Đạo.',
+  'A|Trong đền còn lưu giữ tiêu bản một cá thể rùa lớn từng sống ở hồ. Nhiều người Hà Nội coi những chú rùa này như linh hồn của hồ Gươm.',
+  'B|Trước cổng có Tháp Bút và Đài Nghiên, tượng trưng cho bút và nghiên mực. Một lời nhắc rằng Hà Nội từ lâu đã trọng chữ nghĩa.']],
+ ['Văn Miếu – Quốc Tử Giám','Temple of Literature, Hanoi, Vietnam',21.02935,105.83555,180,'82 tấm bia tiến sĩ đặt trên lưng rùa đá là Di sản tư liệu thế giới.',[
+  'A|Nói tới chữ nghĩa thì phải ghé Văn Miếu. Mình đang bay về phía tây, hạ xuống những mái ngói rêu và hàng cây cổ thụ.',
+  'B|Văn Miếu được xây năm 1070 dưới thời vua Lý Thánh Tông. Sáu năm sau, Quốc Tử Giám ra đời, được xem là trường đại học đầu tiên của Việt Nam.',
+  'A|Điểm đặc biệt nhất là 82 tấm bia tiến sĩ đặt trên lưng rùa đá, khắc tên những người đỗ đạt qua các khoa thi. Chúng được UNESCO công nhận là Di sản tư liệu thế giới.',
+  'B|Mùa thi, nhiều sĩ tử tới đây cầu may. Ngày xưa người ta xoa đầu rùa, nhưng giờ các bia đã được rào lại để bảo vệ. Cầu may bằng tâm thôi nhé!']],
+ ['Nhà tù Hỏa Lò','Hoa Lo Prison, Hanoi, Vietnam',21.02529,105.84655,90,'Do Pháp xây năm 1896; phi công Mỹ từng gọi là Hanoi Hilton.',[
+  'A|Giờ chúng ta bay sang một trang sử nặng nề hơn: nhà tù Hỏa Lò trên phố Hỏa Lò.',
+  'B|Nhà tù được người Pháp xây năm 1896 để giam giữ những người Việt yêu nước. Nhiều nhà cách mạng từng bị giam ở đây.',
+  'A|Thời chiến tranh Việt Nam, nơi này giam giữ phi công Mỹ bị bắn rơi, và họ đặt cho nó biệt danh mỉa mai là Hanoi Hilton.',
+  'B|Phần lớn khu nhà tù đã nhường chỗ cho cao ốc, chỉ phần còn lại được giữ làm di tích. Đi giữa những bức tường dày, bạn sẽ thấy lịch sử không chỉ nằm trong sách.']],
+ ['Chợ Đồng Xuân','Dong Xuan Market, Hanoi, Vietnam',21.03826,105.84964,0,'Chợ được xây năm 1889, lớn nhất khu phố cổ.',[
+  'A|Điểm cuối, chúng ta trở lại nhịp sống thường ngày, lượn qua những con phố Hàng Đào, Hàng Ngang tới chợ Đồng Xuân.',
+  'B|Chợ được xây năm 1889, là chợ lớn nhất khu phố cổ. Các phố quanh đây mang tên mặt hàng ngày xưa: Hàng Bạc, Hàng Mã, Hàng Đường, Hàng Muối.',
+  'A|Ra khỏi chợ, bạn có thể làm một bát bún chả, một cốc cà phê trứng, hay đơn giản ngồi vỉa hè uống trà đá ngắm phố.',
+  'B|Một nghìn năm, mà Hà Nội vẫn trẻ trung như thế. Cảm ơn các bạn đã nghe WanderCast, hẹn gặp lại ở chuyến bay sau!']]]},
+
+{id:'hue-vi',lang:'vi',e:'👑',region:'vn',theme:'cinematic',aud:['student','all'],title:'Huế: chuyện những vị vua cuối cùng',dest:'Huế',hosts:['Nam','Mai'],
+ sum:'Theo chân triều Nguyễn qua Hoàng thành, lăng tẩm và dòng Hương.',stops:[
+ ['Ngọ Môn – Hoàng thành Huế','Ngo Mon Gate, Imperial City, Hue, Vietnam',16.46769,107.57856,0,'Ngọ Môn được xây năm 1833 dưới thời vua Minh Mạng.',[
+  'A|Màn sương sớm còn vương trên sông Hương khi chúng ta hạ cánh xuống cố đô Huế. Chào mừng tới WanderCast, mình là Nam.',
+  'B|Mình là Mai. Trước mặt chúng ta là Ngọ Môn, cổng chính của Hoàng thành, nơi triều Nguyễn, triều đại phong kiến cuối cùng của Việt Nam, từng ngự trị.',
+  'A|Ngọ Môn được xây năm 1833 dưới thời vua Minh Mạng. Trên lầu Ngũ Phụng, năm 1945, vua Bảo Đại đọc chiếu thoái vị, khép lại chế độ quân chủ ở Việt Nam.',
+  'B|Quần thể di tích Cố đô Huế là Di sản Văn hóa Thế giới đầu tiên của Việt Nam, được UNESCO công nhận năm 1993.']],
+ ['Cầu Trường Tiền','Truong Tien Bridge, Hue, Vietnam',16.46805,107.58771,90,'Cây cầu "sáu vài mười hai nhịp" đi vào thơ ca.',[
+  'A|Mình bay dọc bờ sông tới cầu Trường Tiền, cây cầu sáu vài mười hai nhịp đi vào bao câu hò xứ Huế.',
+  'B|Cầu được dựng vào cuối thế kỷ mười chín. Người ta hay truyền tai nhau rằng công ty của Gustave Eiffel thiết kế, nhưng các nhà nghiên cứu vẫn còn tranh luận chuyện này.',
+  'A|Buổi tối, cầu đổi màu liên tục, phản chiếu xuống mặt sông Hương. Nhìn từ trên cao, nó giống như một dải lụa ánh sáng.',
+  'B|Đứng giữa cầu, bạn sẽ thấy những chiếc thuyền rồng chở khách nghe ca Huế. Một tiếng đàn tranh, một câu hò mái nhì, là đủ để thương Huế rồi.']],
+ ['Chùa Thiên Mụ','Thien Mu Pagoda, Hue, Vietnam',16.45351,107.54498,270,'Tháp Phước Duyên bảy tầng được xây năm 1844.',[
+  'A|Ngược dòng sông Hương về phía tây, chúng ta tới đồi Hà Khê, nơi tháp Phước Duyên bảy tầng soi bóng xuống nước.',
+  'B|Chùa Thiên Mụ được chúa Nguyễn Hoàng cho xây năm 1601. Tương truyền dân làng kể về một bà lão áo đỏ hiện lên báo rằng sẽ có chân chúa tới lập chùa giữ long mạch.',
+  'A|Còn tháp Phước Duyên thì được xây năm 1844 dưới thời vua Thiệu Trị. Tiếng chuông chùa Thiên Mụ từ lâu đã là âm thanh của Huế.',
+  'B|Trong khuôn viên chùa còn trưng bày chiếc xe hơi gắn với hòa thượng Thích Quảng Đức, một chứng tích lịch sử năm 1963.']],
+ ['Lăng Tự Đức','Tomb of Tu Duc, Hue, Vietnam',16.43342,107.56575,180,'Lăng được xây từ năm 1864, vua dùng làm nơi nghỉ ngơi lúc sinh thời.',[
+  'A|Tiếp theo, chúng ta bay qua những đồi thông để tới lăng vua Tự Đức, có lẽ là lăng thơ mộng nhất xứ Huế.',
+  'B|Vua Tự Đức trị vì lâu nhất triều Nguyễn, hơn ba mươi năm. Ông là một vị vua mê thơ văn, và lăng được xây khi ông còn sống, dùng làm nơi nghỉ ngơi, làm thơ.',
+  'A|Có hồ Lưu Khiêm phủ sen, có thủy tạ Xung Khiêm nhìn ra mặt nước. Nghe nói vua thường ra đây ngắm trăng, câu cá, ngâm thơ.',
+  'B|Một chi tiết buồn: dù có rất nhiều phi tần, vua Tự Đức không có con ruột. Bia đá trong lăng khắc bài văn do chính ông viết về cuộc đời mình.']],
+ ['Lăng Khải Định','Tomb of Khai Dinh, Hue, Vietnam',16.39925,107.59036,90,'Nội thất khảm sành sứ và thủy tinh, pha trộn Đông Tây.',[
+  'A|Điểm dừng cuối, chúng ta hạ xuống sườn núi Châu Chữ, nơi lăng vua Khải Định vươn lên với những bậc thang dài dẫn lên cao.',
+  'B|Lăng xây từ năm 1920 tới 1931, pha trộn kiến trúc Á và Âu. Bên trong cung Thiên Định là những bức khảm làm từ mảnh sành sứ và thủy tinh, lấp lánh khắp tường.',
+  'A|Đây là lăng nhỏ nhất nhưng được xem là tốn công nhất trong các lăng vua Nguyễn. Có lúc triều đình còn phải tăng thuế để có tiền xây.',
+  'B|Từ hoàng thành uy nghiêm tới lăng tẩm lộng lẫy, Huế kể câu chuyện của cả một thời đại. Cảm ơn các bạn đã nghe WanderCast, hẹn gặp lại!']]]},
+
+{id:'halong-vi',lang:'vi',e:'🐉',region:'vn',theme:'kids',aud:['kids','all'],title:'Hạ Long: nơi rồng đáp xuống',dest:'Vịnh Hạ Long',hosts:['Nam','Mai'],
+ sum:'Phiêu lưu cho bé quanh vịnh Hạ Long: rồng, hang động và làng chài nổi.',stops:[
+ ['Vịnh Hạ Long','Ha Long Bay, Quang Ninh, Vietnam',20.91059,107.18397,180,'Vịnh có gần 2.000 hòn đảo lớn nhỏ.',[
+  'A|Xin chào các bạn nhỏ! Mình là anh Nam, và đây là WanderCast. Thắt dây an toàn vào nhé, mình sắp bay ra biển rồi!',
+  'B|Còn chị là chị Mai. Bạn có biết không, dưới kia là vịnh Hạ Long, với gần hai nghìn hòn đảo nhô lên từ mặt nước xanh như ngọc.',
+  'A|Ngày xửa ngày xưa, khi có giặc từ biển kéo tới, Ngọc Hoàng sai một đàn rồng xuống giúp người dân. Rồng phun ra những viên ngọc, biến thành các hòn đảo chặn đường giặc.',
+  'B|Nơi rồng mẹ đáp xuống được gọi là Hạ Long, nghĩa là rồng hạ xuống. Bạn nhìn kỹ xem, có hòn đảo nào giống con rồng không?']],
+ ['Hòn Trống Mái','Ga Choi Islet, Ha Long Bay, Vietnam',20.85856,107.07408,90,'Hai hòn đá trông như đôi gà đang đứng đối mặt.',[
+  'A|Giờ mình bay thấp xuống một chút. Nhìn kìa, có hai hòn đá nhỏ đứng sát nhau giữa biển!',
+  'B|Đó là hòn Trống Mái, còn gọi là hòn Gà Chọi. Người ta thấy chúng giống như một chú gà trống và một cô gà mái đang đứng nhìn nhau.',
+  'A|Hai chú gà đá này đã đứng ở đây hàng nghìn năm rồi, mặc cho sóng vỗ và gió thổi. Bạn thử đoán xem chú nào là gà trống?',
+  'B|Hình ảnh hòn Trống Mái từng được in trên tem và trên nhiều tấm bưu thiếp, trở thành biểu tượng nổi tiếng của vịnh Hạ Long.']],
+ ['Hang Sửng Sốt','Sung Sot Cave, Ha Long Bay, Vietnam',20.84475,107.09043,0,'Hang rộng như một hội trường khổng lồ, đầy nhũ đá.',[
+  'A|Tiếp theo là một nơi bí mật! Mình sẽ chui vào trong một hòn đảo, vào hang Sửng Sốt.',
+  'B|Tên hang nghe lạ đúng không? Vì ai bước vào cũng phải sửng sốt, tức là ngạc nhiên ơi là ngạc nhiên, khi thấy hang rộng như một hội trường khổng lồ.',
+  'A|Trên trần hang là những nhũ đá rủ xuống, có cái giống cây nấm, có cái giống con thú. Những nhũ đá này mất hàng nghìn năm mới lớn lên được một chút xíu.',
+  'B|Vì thế mình không được chạm tay vào nhũ đá nhé. Chỉ nhìn và tưởng tượng thôi. Bạn thấy hình con gì nào?']],
+ ['Đảo Ti Tốp','Ti Top Island, Ha Long Bay, Vietnam',20.86260,107.06722,270,'Đảo mang tên một nhà du hành vũ trụ Liên Xô.',[
+  'A|Ra khỏi hang, mình bay tới đảo Ti Tốp, nơi có bãi cát trắng hình vầng trăng khuyết.',
+  'B|Tên đảo nghe như tên người nước ngoài đúng không? Đúng rồi đó! Đảo được đặt theo tên nhà du hành vũ trụ Liên Xô Gherman Titov, người từng ghé thăm nơi này năm 1962.',
+  'A|Nếu leo hơn bốn trăm bậc thang lên đỉnh đảo, bạn sẽ thấy cả vịnh Hạ Long trải ra bên dưới như một bức tranh khổng lồ.',
+  'B|Mệt một chút nhưng đáng lắm. Lên tới nơi nhớ uống nước và hít thật sâu gió biển nha!']],
+ ['Làng chài Cửa Vạn','Cua Van Floating Village, Ha Long Bay, Vietnam',20.83322,107.10474,180,'Ngày xưa nhà, trường học của làng đều nổi trên mặt nước.',[
+  'A|Điểm dừng cuối cùng, chúng mình ghé thăm làng chài Cửa Vạn, một ngôi làng nằm giữa biển!',
+  'B|Ngày xưa ở đây nhà cửa đều nổi trên mặt nước, có cả trường học nổi nữa. Các bạn nhỏ trong làng chèo thuyền đi học thay vì đi xe đạp.',
+  'A|Ngày nay nhiều gia đình đã lên bờ sinh sống, nhưng làng vẫn được giữ lại để mọi người hiểu cuộc sống của ngư dân vùng vịnh.',
+  'B|Vịnh Hạ Long được UNESCO công nhận là Di sản Thiên nhiên Thế giới đấy. Mình cùng giữ cho biển sạch, không xả rác nhé!',
+  'A|Hết chuyến phiêu lưu rồi. Cảm ơn các bạn nhỏ đã bay cùng anh Nam và chị Mai. Hẹn gặp lại lần sau nha!']]]},
+
+{id:'saigon-vi',lang:'vi',e:'🛵',region:'vn',theme:'funny',aud:['all','travel'],title:'Sài Gòn: thành phố không ngủ (và không hết món ăn)',dest:'TP. Hồ Chí Minh',hosts:['Nam','Mai'],
+ sum:'Vòng quanh Sài Gòn bằng bụng đói và vài câu chuyện bất ngờ.',stops:[
+ ['Chợ Bến Thành','Ben Thanh Market, Ho Chi Minh City, Vietnam',10.77250,106.69800,0,'Tòa nhà chợ có tháp đồng hồ, hoàn thành năm 1914.',[
+  'A|Xin chào, đây là WanderCast. Mình là Nam, người đang đói bụng.',
+  'B|Mình là Mai, người phải đi theo để ngăn Nam ăn hết Sài Gòn. Và tụi mình vừa đáp xuống chợ Bến Thành!',
+  'A|Tòa nhà chợ với tháp đồng hồ này hoàn thành năm 1914. Hơn một trăm năm mà chiếc đồng hồ vẫn là điểm hẹn quen thuộc của dân Sài Gòn.',
+  'B|Trong chợ có đủ thứ, từ vải vóc tới cà phê. Nhưng điều quan trọng nhất mà Nam muốn nói với các bạn là khu ăn uống.',
+  'A|Chính xác. Bánh canh cua, bún riêu, ốc. Mình xin phép không bình luận thêm vì đang chảy nước miếng.']],
+ ['Nhà thờ Đức Bà','Notre-Dame Cathedral Basilica of Saigon, Ho Chi Minh City, Vietnam',10.77979,106.69902,30,'Gạch đỏ được nhập từ Pháp, đến nay vẫn giữ màu.',[
+  'A|Bay qua đường Lê Lợi, chúng ta tới nhà thờ Đức Bà với hai tháp chuông vươn cao.',
+  'B|Nhà thờ được xây từ năm 1863 tới 1880. Gạch đỏ được chở từ Pháp sang, và điều kỳ lạ là tới giờ chúng vẫn giữ màu đỏ tươi.',
+  'A|Hồi trước có tin đồn bức tượng Đức Mẹ trước nhà thờ rơi nước mắt, khiến cả ngàn người kéo tới xem, kẹt xe cả khu.',
+  'B|Sài Gòn là vậy đó, có chuyện gì là cả thành phố đổ ra đường liền. Nhà thờ còn trải qua một đợt trùng tu lớn kéo dài nhiều năm, để giữ vẻ đẹp cho thế kỷ tiếp theo.']],
+ ['Bưu điện Thành phố','Saigon Central Post Office, Ho Chi Minh City, Vietnam',10.77998,106.69989,90,'Nhiều người tưởng Eiffel thiết kế, nhưng kiến trúc sư là Alfred Foulhoux.',[
+  'A|Ngay cạnh đó là Bưu điện Thành phố, màu vàng rất ăn ảnh.',
+  'B|Câu đố nè: ai thiết kế tòa nhà này? Nhiều người trả lời Gustave Eiffel, ông chủ của tháp Eiffel đó.',
+  'A|Và nhiều người đã sai! Theo các tài liệu, kiến trúc sư thiết kế là Alfred Foulhoux. Ông Eiffel bị nhận vơ hơi nhiều công trình ở Việt Nam.',
+  'B|Bên trong có mái vòm thép, bản đồ cổ vẽ tay trên tường và cả những chiếc bốt điện thoại xưa. Bạn vẫn có thể gửi bưu thiếp từ đây thật đấy.']],
+ ['Phố đi bộ Nguyễn Huệ','Nguyen Hue Walking Street, Ho Chi Minh City, Vietnam',10.77385,106.70383,0,'Cuối phố là trụ sở UBND Thành phố, xây đầu thế kỷ 20.',[
+  'A|Giờ mình bay sang phố đi bộ Nguyễn Huệ, nơi buổi tối đông vui như hội.',
+  'B|Một đầu là tòa nhà Ủy ban Nhân dân Thành phố được xây vào đầu thế kỷ hai mươi, đầu kia là sông Sài Gòn. Ở giữa là đủ thứ: nhảy hip hop, hát, bán trà sữa.',
+  'A|Kế bên còn có chung cư cũ 42 Nguyễn Huệ, giờ thành chung cư cà phê. Mỗi căn hộ là một quán, leo lên tầng nào cũng có nước uống.',
+  'B|Mẹo nhỏ: muốn lên các tầng trên thì có thang máy, nhưng phải trả vài nghìn đồng. Sài Gòn kinh doanh cả cái thang máy luôn đó!']],
+ ['Chợ Bình Tây','Binh Tay Market, Ho Chi Minh City, Vietnam',10.74995,106.65103,0,'Do thương nhân Quách Đàm xây, khánh thành khoảng năm 1930.',[
+  'A|Điểm cuối, mình bay về Chợ Lớn, khu người Hoa lâu đời của Sài Gòn, tới chợ Bình Tây.',
+  'B|Chợ do thương nhân Quách Đàm bỏ tiền xây, khánh thành vào khoảng năm 1930. Mái chợ mang đậm kiến trúc Hoa, giữa sân có tượng của chính ông.',
+  'A|Quanh đây có hủ tiếu, sủi cảo, mì vịt tiềm. Và đây là điểm cuối, nên mình tuyên bố: mình sẽ ăn mỗi thứ một tô.',
+  'B|Và mình sẽ là người trả tiền, như mọi lần. Cảm ơn các bạn đã nghe WanderCast. Sài Gòn không ngủ, nhưng tụi mình thì phải đi ngủ rồi. Hẹn gặp lại!']]]},
+
+{id:'dalat-vi',lang:'vi',e:'🌲',region:'vn',theme:'romantic',aud:['relax','all'],title:'Đà Lạt trước giờ đi ngủ',dest:'Đà Lạt',hosts:['Nam','Mai'],
+ sum:'Một podcast chậm rãi, se lạnh và dịu dàng để thư giãn cuối ngày.',stops:[
+ ['Hồ Xuân Hương','Xuan Huong Lake, Da Lat, Vietnam',11.94059,108.44462,60,'Hồ nhân tạo được tạo ra từ khoảng năm 1919.',[
+  'A|Chào bạn, đây là WanderCast. Mình là Nam. Tối nay, bạn cứ thả lỏng vai, hít một hơi thật sâu, và để tụi mình đưa bạn lên Đà Lạt.',
+  'B|Mình là Mai. Không khí ở đây se lạnh, sương bắt đầu giăng trên mặt hồ Xuân Hương. Ánh đèn quanh hồ lung linh như những vì sao rơi xuống nước.',
+  'A|Hồ được tạo ra từ khoảng năm 1919, khi người Pháp đắp đập ngăn dòng suối. Giờ nó là trái tim của thành phố, ai đến Đà Lạt cũng đi một vòng quanh hồ.',
+  'B|Nếu bạn đang ở đây, chắc tay đang ôm một ly sữa đậu nành nóng, hơi ấm lan dần lên từng ngón tay.']],
+ ['Chợ đêm Đà Lạt','Da Lat Market, Da Lat, Vietnam',11.94299,108.43715,250,'Bánh tráng nướng, khoai lang nướng và áo len là "đặc sản" chợ đêm.',[
+  'A|Mình đi chậm rãi lên những bậc thang tới chợ đêm Đà Lạt, nơi mùi khoai nướng thơm lừng.',
+  'B|Người ta bán áo len, khăn choàng, và món ai cũng phải thử là bánh tráng nướng, giòn tan, thơm mùi trứng và hành phi.',
+  'A|Tiếng người nói cười, tiếng than nổ lách tách. Đà Lạt về đêm không ồn ào như thành phố lớn, mà ấm áp như một buổi tụ họp gia đình.',
+  'B|Bạn cứ tưởng tượng mình ngồi trên chiếc ghế nhựa nhỏ, cầm củ khoai nóng hổi, nhìn hơi thở của mình thành làn khói trắng.']],
+ ['Ga Đà Lạt','Da Lat Railway Station, Da Lat, Vietnam',11.94146,108.45504,90,'Ba chóp mái được cho là mô phỏng đỉnh núi Lang Biang.',[
+  'A|Mình đi tiếp về phía đông, tới ga xe lửa Đà Lạt, một nhà ga cổ rất đẹp.',
+  'B|Ga được xây vào những năm 1930, mang phong cách Art Deco. Ba chóp mái nhọn được cho là mô phỏng đỉnh núi Lang Biang, cũng có người bảo giống mái nhà rông Tây Nguyên.',
+  'A|Ngày xưa tuyến đường sắt răng cưa nối Đà Lạt xuống đồng bằng. Giờ chỉ còn một đoạn ngắn chở khách đi Trại Mát, chậm rãi qua những vườn rau.',
+  'B|Tiếng còi tàu xa xa, khung cửa sổ gỗ, những toa tàu cũ. Nơi này đẹp như một bức ảnh phim từ những năm xưa.']],
+ ['Thiền viện Trúc Lâm','Truc Lam Zen Monastery, Da Lat, Vietnam',11.90256,108.43515,200,'Thiền viện nhìn xuống hồ Tuyền Lâm giữa rừng thông.',[
+  'A|Giờ mình bay nhẹ lên đồi Phượng Hoàng, tới thiền viện Trúc Lâm nhìn xuống hồ Tuyền Lâm.',
+  'B|Thiền viện được xây vào những năm 1990, ẩn mình giữa rừng thông. Buổi sáng có tiếng chuông, buổi chiều có tiếng gió lùa qua lá thông.',
+  'A|Bạn thử nhắm mắt lại một chút. Hít vào, nghe mùi nhựa thông. Thở ra, để mọi lo lắng trong ngày trôi xuống mặt hồ.',
+  'B|Đôi khi, chỉ cần vài phút yên lặng như vậy, lòng mình đã nhẹ đi rất nhiều.']],
+ ['Quảng trường Lâm Viên','Lam Vien Square, Da Lat, Vietnam',11.93692,108.44530,0,'Công trình kính hình bông atiso và nụ hoa dã quỳ.',[
+  'A|Điểm cuối của tối nay, mình quay về quảng trường Lâm Viên, nhìn ra hồ Xuân Hương lần nữa.',
+  'B|Ở đây có hai công trình bằng kính, một hình bông atiso, một hình nụ hoa dã quỳ, hai loài cây gắn liền với Đà Lạt.',
+  'A|Đêm đã khuya, sương đã dày. Thành phố ngàn hoa đang dần chìm vào giấc ngủ, và có lẽ bạn cũng vậy.',
+  'B|Cảm ơn bạn đã nghe WanderCast. Chúc bạn ngủ thật ngon, và mơ một giấc mơ có mùi thông và hoa dã quỳ.']]]}
+]);
+window.WC_TOURS = (window.WC_TOURS||[]).concat([
+{id:'kyoto-vi',lang:'vi',e:'⛩️',region:'world',theme:'cinematic',aud:['all','travel'],title:'Kyoto và những bí ẩn của cố đô',dest:'Kyoto',hosts:['Nam','Mai'],
+ sum:'Hồ ly, cổng torii và ngôi chùa vàng từng bị thiêu rụi.',stops:[
+ ['Fushimi Inari Taisha','Fushimi Inari Taisha, Kyoto, Japan',34.96714,135.77267,90,'Hàng nghìn cổng torii đỏ chạy lên núi Inari.',[
+  'A|Chào mừng tới WanderCast. Mình là Nam, và đêm nay chúng ta bay tới Kyoto, cố đô hơn một nghìn năm tuổi của Nhật Bản.',
+  'B|Mình là Mai. Và điểm đầu tiên là nơi mà ai cũng từng thấy trong phim: những dãy cổng torii đỏ nối nhau như một đường hầm, ở đền Fushimi Inari.',
+  'A|Có hàng nghìn cổng như vậy, mỗi cổng do một cá nhân hay doanh nghiệp hiến tặng để cầu làm ăn phát đạt. Tên người tặng được viết ở mặt sau.',
+  'B|Bạn sẽ thấy rất nhiều tượng hồ ly, gọi là kitsune. Trong tín ngưỡng Nhật, hồ ly là sứ giả của thần Inari. Miệng chúng thường ngậm chìa khóa kho lúa, hoặc một viên ngọc.',
+  'A|Người ta kể rằng đi sâu lên núi lúc chạng vạng, khi đèn lồng bật sáng, cảm giác như có ai đó lặng lẽ dõi theo mình.']],
+ ['Chùa Kiyomizu-dera','Kiyomizu-dera, Kyoto, Japan',34.99485,135.78504,250,'Sân khấu gỗ khổng lồ được dựng không dùng đinh.',[
+  'A|Chúng ta bay về phía đông, lên sườn núi Otowa, tới chùa Kiyomizu-dera.',
+  'B|Chùa được lập từ năm 778, trước cả khi Kyoto trở thành kinh đô. Điểm nổi tiếng nhất là sân khấu gỗ khổng lồ nhô ra khỏi vách núi, dựng trên hàng trăm cột gỗ mà không dùng một chiếc đinh nào.',
+  'A|Người Nhật có câu nói: nhảy xuống từ sân khấu Kiyomizu, nghĩa là liều mình làm một việc lớn. Ngày xưa thật sự có người nhảy, vì tin rằng nếu sống sót thì điều ước sẽ thành.',
+  'B|Đừng thử nhé! Bên dưới có thác Otowa chia làm ba dòng, mỗi dòng tượng trưng cho sức khỏe, tình yêu và học vấn. Uống một dòng thôi, tham quá là mất linh đấy.']],
+ ['Phố Gion','Hanamikoji Street, Gion, Kyoto, Japan',35.00366,135.77514,180,'Khu phố của các geiko và maiko.',[
+  'A|Màn đêm buông xuống, chúng ta hạ xuống phố Hanamikoji ở khu Gion, những ngôi nhà gỗ machiya nối nhau dưới ánh đèn lồng.',
+  'B|Đây là thế giới của các geiko, cách người Kyoto gọi geisha, và các maiko, những cô gái đang học nghề. Họ học múa, đàn shamisen, trà đạo trong nhiều năm.',
+  'A|Nếu may mắn, bạn sẽ thấy một bóng áo kimono lướt nhanh qua con hẻm, tiếng guốc gỗ lóc cóc rồi biến mất sau một cánh cửa trượt.',
+  'B|Một lời nhắc: họ đang đi làm, nên đừng chặn đường hay chụp ảnh khi chưa xin phép. Ở một số hẻm tư nhân, chụp ảnh còn bị cấm hẳn.']],
+ ['Rừng tre Arashiyama','Arashiyama Bamboo Grove, Kyoto, Japan',35.01706,135.67191,0,'Tiếng gió qua rừng tre được Nhật chọn vào danh sách âm thanh nên giữ gìn.',[
+  'A|Giờ chúng ta bay về phía tây thành phố, tới rừng tre Arashiyama.',
+  'B|Những thân tre cao vút đan vào nhau, ánh sáng lọc qua thành màu xanh ngọc. Khi gió thổi, cả khu rừng kẽo kẹt, xào xạc như đang thì thầm.',
+  'A|Âm thanh ấy đẹp tới mức Nhật Bản từng đưa nó vào danh sách những âm thanh đáng được gìn giữ của đất nước.',
+  'B|Bạn thử lắng tai nghe xem. Có người nói, nếu đi một mình lúc sáng sớm, bạn sẽ nghe được cả tiếng bước chân của chính mình vọng lại.']],
+ ['Chùa Vàng Kinkaku-ji','Kinkaku-ji, Kyoto, Japan',35.03937,135.72924,180,'Ngôi chùa dát vàng bị một nhà sư đốt năm 1950, xây lại năm 1955.',[
+  'A|Điểm cuối, chúng ta bay về phía bắc, tới ngôi chùa phủ vàng soi bóng xuống hồ: Kinkaku-ji.',
+  'B|Hai tầng trên của chùa được dát lá vàng, lấp lánh trên mặt hồ Kyokochi. Nhưng đây lại là câu chuyện bí ẩn nhất của chuyến đi.',
+  'A|Năm 1950, một nhà sư trẻ đã phóng hỏa thiêu rụi ngôi chùa gốc có từ thế kỷ mười bốn. Câu chuyện ám ảnh tới mức nhà văn Mishima Yukio viết thành tiểu thuyết.',
+  'B|Ngôi chùa bạn thấy hôm nay được dựng lại năm 1955, và sau này còn được dát vàng dày hơn trước. Đôi khi, cái đẹp phải tái sinh từ tro tàn.',
+  'A|Cảm ơn các bạn đã cùng WanderCast khám phá Kyoto. Hẹn gặp lại ở một cố đô khác nhé!']]]},
+
+{id:'paris-vi',lang:'vi',e:'🗼',region:'world',theme:'cinematic',aud:['all','travel'],title:'Paris: thành phố của ánh sáng và những câu chuyện',dest:'Paris',hosts:['Nam','Mai'],
+ sum:'Từ tháp Eiffel tới đồi Montmartre, Paris qua những khúc quanh lịch sử.',stops:[
+ ['Tháp Eiffel','Eiffel Tower, Paris, France',48.85837,2.29448,120,'Tháp được xây cho Triển lãm Thế giới 1889, từng định chỉ tồn tại 20 năm.',[
+  'A|Bonjour! Đây là WanderCast, mình là Nam. Chúng ta đang lơ lửng trên bầu trời Paris, và trước mặt là biểu tượng không thể nhầm lẫn: tháp Eiffel.',
+  'B|Mình là Mai. Tháp được xây cho Triển lãm Thế giới năm 1889. Bạn có tin không, hồi đó nhiều nghệ sĩ Paris ký thư phản đối, gọi nó là một cột sắt xấu xí.',
+  'A|Ban đầu tháp chỉ được cấp phép tồn tại hai mươi năm. Nó được giữ lại một phần vì hữu ích cho việc thu phát sóng vô tuyến.',
+  'B|Giờ thì mỗi tối, tháp lấp lánh ánh đèn vài phút mỗi đầu giờ. Thứ từng bị chê xấu lại thành biểu tượng của cả một đất nước.']],
+ ['Bảo tàng Louvre','Louvre Museum, Paris, France',48.86061,2.33764,90,'Kim tự tháp kính của kiến trúc sư I. M. Pei khánh thành năm 1989.',[
+  'A|Chúng ta bay dọc sông Seine về phía đông, tới bảo tàng Louvre.',
+  'B|Trước khi là bảo tàng, Louvre từng là pháo đài, rồi cung điện của các vua Pháp. Giữa sân là kim tự tháp kính do kiến trúc sư I. M. Pei thiết kế, khánh thành năm 1989.',
+  'A|Hồi mới xây, kim tự tháp cũng bị chê không kém tháp Eiffel. Có vẻ người Paris luôn ghét mọi thứ mới trước khi yêu nó.',
+  'B|Bên trong là bức Mona Lisa nhỏ hơn bạn tưởng, luôn có một đám đông vây quanh. Năm 1911 bức tranh từng bị đánh cắp, và chính vụ trộm đó làm nó nổi tiếng toàn cầu.']],
+ ['Nhà thờ Đức Bà Paris','Notre-Dame de Paris, Paris, France',48.85296,2.34990,90,'Sau đám cháy năm 2019, nhà thờ mở cửa trở lại vào cuối năm 2024.',[
+  'A|Tiếp theo, chúng ta hạ xuống đảo Île de la Cité giữa sông Seine, nơi nhà thờ Đức Bà Paris đứng sừng sững.',
+  'B|Nhà thờ được khởi công từ thế kỷ mười hai. Tiểu thuyết Thằng gù nhà thờ Đức Bà của Victor Hugo từng góp phần cứu nó khỏi cảnh xuống cấp.',
+  'A|Tháng tư năm 2019, cả thế giới bàng hoàng khi ngọn lửa thiêu rụi mái và ngọn tháp nhọn. Sau hơn năm năm phục dựng, nhà thờ mở cửa trở lại vào cuối năm 2024.',
+  'B|Những người thợ đã dùng cả kỹ thuật mộc thời Trung cổ để dựng lại khung mái. Quá khứ được cứu bằng chính tay nghề của quá khứ.']],
+ ['Đồi Montmartre','Sacré-Cœur, Montmartre, Paris, France',48.88671,2.34310,180,'Vương cung thánh đường Sacré-Cœur trên điểm cao nhất Paris.',[
+  'A|Giờ chúng ta bay lên phía bắc, tới ngọn đồi Montmartre, nơi vương cung thánh đường Sacré-Cœur trắng muốt nhìn xuống cả thành phố.',
+  'B|Đá của nhà thờ có khả năng tự làm sạch khi gặp mưa, nên nó luôn trắng tinh. Từ bậc thềm này, bạn thấy Paris trải ra như một tấm bản đồ.',
+  'A|Đầu thế kỷ hai mươi, Montmartre là thiên đường của nghệ sĩ nghèo. Picasso, Van Gogh đều từng sống quanh đây.',
+  'B|Ở quảng trường Place du Tertre, các họa sĩ vẫn ngồi vẽ chân dung cho khách. Ngồi xuống mười lăm phút, bạn có một bức tranh Paris mang về.']],
+ ['Khải Hoàn Môn','Arc de Triomphe, Paris, France',48.87378,2.29504,120,'Napoléon cho xây năm 1806; dưới vòm có ngọn lửa tưởng niệm không bao giờ tắt.',[
+  'A|Điểm cuối, chúng ta bay dọc đại lộ Champs-Élysées tới Khải Hoàn Môn.',
+  'B|Napoléon cho xây công trình này năm 1806 để mừng chiến thắng, nhưng ông không kịp thấy nó hoàn thành. Dưới vòm là mộ Chiến sĩ Vô danh, với ngọn lửa được thắp lại mỗi tối.',
+  'A|Quanh Khải Hoàn Môn là vòng xoay có mười hai đại lộ đổ về, nổi tiếng là nơi lái xe hỗn loạn bậc nhất Paris.',
+  'B|Và đó là Paris của chúng ta hôm nay. Cảm ơn các bạn đã đồng hành cùng WanderCast. Au revoir, hẹn gặp lại!']]]},
+
+{id:'rome-vi',lang:'vi',e:'🏛️',region:'world',theme:'expert',aud:['student','all'],title:'Rome: học lịch sử La Mã trong 20 phút',dest:'Rome',hosts:['Nam','Mai'],
+ sum:'Bài học lịch sử sống động cho học sinh và người tò mò.',stops:[
+ ['Đấu trường Colosseum','Colosseum, Rome, Italy',41.89021,12.49223,0,'Khánh thành năm 80, chứa khoảng 50.000 khán giả.',[
+  'A|Chào mừng tới WanderCast, mình là Nam. Hôm nay là một buổi học lịch sử, nhưng không cần bàn ghế, vì chúng ta học ngay trên bầu trời Rome.',
+  'B|Mình là Mai. Bài đầu tiên: đấu trường Colosseum. Nó được khánh thành vào năm 80 sau Công nguyên, chứa được khoảng năm mươi nghìn khán giả.',
+  'A|Ở đây diễn ra các trận đấu của võ sĩ giác đấu và những màn săn thú. Bên dưới sàn đấu là cả một mê cung tầng hầm, có thang nâng đưa thú dữ lên bất ngờ.',
+  'B|Người La Mã còn có hệ thống mái che bằng vải căng trên đỉnh để che nắng cho khán giả. Hai nghìn năm trước mà đã có mái che di động rồi đó.']],
+ ['Quảng trường La Mã','Roman Forum, Rome, Italy',41.89246,12.48533,270,'Trung tâm chính trị, tôn giáo và thương mại của La Mã cổ đại.',[
+  'A|Ngay cạnh đó là Forum Romanum, quảng trường La Mã. Từ trên cao, bạn chỉ thấy cột đá và tàn tích, nhưng hãy tưởng tượng nó ngày xưa.',
+  'B|Đây là trung tâm của mọi thứ: các ngôi đền, tòa án, nơi họp của nghị viện, chợ búa. Các bài diễn thuyết chính trị quan trọng đều vang lên ở đây.',
+  'A|Sau khi Julius Caesar bị ám sát năm 44 trước Công nguyên, thi hài ông được hỏa táng ngay tại khu vực này. Đến giờ vẫn có người đặt hoa tưởng niệm.',
+  'B|Một mẹo ghi nhớ cho học sinh: Forum là quảng trường, Senate là viện nguyên lão, còn SPQR khắc khắp nơi nghĩa là Viện Nguyên lão và Nhân dân La Mã.']],
+ ['Đền Pantheon','Pantheon, Rome, Italy',41.89861,12.47687,0,'Mái vòm bê tông không cốt thép lớn nhất thế giới sau gần 2.000 năm.',[
+  'A|Chúng ta bay tiếp qua những con phố lát đá tới đền Pantheon.',
+  'B|Công trình hiện tại được hoàn thành vào khoảng năm 125 dưới thời hoàng đế Hadrian. Gần hai nghìn năm sau, mái vòm của nó vẫn là mái vòm bê tông không cốt thép lớn nhất thế giới.',
+  'A|Giữa mái có một lỗ tròn rộng khoảng chín mét gọi là oculus, là nguồn sáng duy nhất. Khi trời mưa, nước rơi thẳng xuống sàn và thoát qua những lỗ nhỏ.',
+  'B|Bí mật nằm ở bê tông La Mã, trộn tro núi lửa, và càng lên cao người ta càng dùng vật liệu nhẹ hơn. Một bài học vật lý và hóa học trong cùng một tòa nhà!']],
+ ['Đài phun nước Trevi','Trevi Fountain, Rome, Italy',41.90093,12.48331,0,'Truyền thống ném đồng xu qua vai để được quay lại Rome.',[
+  'A|Giờ là phần thư giãn sau giờ học: đài phun nước Trevi.',
+  'B|Đài phun được hoàn thành năm 1762 theo phong cách Baroque, nước được dẫn tới từ một cống dẫn nước thời La Mã cổ đại.',
+  'A|Truyền thống là quay lưng lại, dùng tay phải ném đồng xu qua vai trái. Ném một đồng là bạn sẽ quay lại Rome.',
+  'B|Ước tính mỗi năm người ta vớt được lượng tiền xu trị giá hơn một triệu euro, và số tiền này được dùng cho công tác từ thiện.']],
+ ['Vương cung thánh đường Thánh Phêrô','St. Peter\'s Basilica, Vatican City',41.90216,12.45392,90,'Vatican là quốc gia nhỏ nhất thế giới.',[
+  'A|Điểm cuối, chúng ta bay qua sông Tiber, vượt qua một biên giới quốc gia mà không cần hộ chiếu, để tới Vatican.',
+  'B|Vatican là quốc gia nhỏ nhất thế giới, rộng chưa tới nửa kilômét vuông. Mái vòm khổng lồ của vương cung thánh đường Thánh Phêrô do Michelangelo thiết kế.',
+  'A|Gần đó là nhà nguyện Sistine, với trần nhà do Michelangelo vẽ trong khoảng bốn năm, phần lớn thời gian là đứng trên giàn giáo và ngửa cổ lên trần.',
+  'B|Vậy là kết thúc buổi học. Bài tập về nhà: kể lại cho người thân một điều bạn nhớ nhất. Cảm ơn các bạn đã nghe WanderCast!']]]},
+
+{id:'egypt-vi',lang:'vi',e:'🐫',region:'world',theme:'adventure',aud:['kids','student','all'],title:'Ai Cập: phiêu lưu cùng các pharaoh',dest:'Ai Cập',hosts:['Nam','Mai'],
+ sum:'Kim tự tháp, tượng Nhân sư và kho báu của vua Tutankhamun.',stops:[
+ ['Đại kim tự tháp Giza','Great Pyramid of Giza, Egypt',29.97916,31.13420,0,'Từng là công trình cao nhất do con người xây trong khoảng 3.800 năm.',[
+  'A|Chào các nhà thám hiểm! Đây là WanderCast, mình là Nam. Đội mũ vào, vì chúng ta sắp đáp xuống sa mạc Ai Cập nóng bỏng.',
+  'B|Mình là Mai. Và ngay trước mặt là Đại kim tự tháp Giza, được xây cho pharaoh Khufu khoảng bốn nghìn năm trăm năm trước.',
+  'A|Nó được xếp từ khoảng hai triệu khối đá, có khối nặng hơn cả một chiếc xe tải. Trong khoảng ba nghìn tám trăm năm, đây là công trình cao nhất do con người xây dựng.',
+  'B|Và đây là kỳ quan duy nhất trong bảy kỳ quan thế giới cổ đại vẫn còn đứng vững tới hôm nay.']],
+ ['Tượng Nhân sư','Great Sphinx of Giza, Egypt',29.97530,31.13757,270,'Thân sư tử, đầu người, dài khoảng 73 mét.',[
+  'A|Chúng ta bay vòng xuống phía dưới, gặp người bảo vệ của các kim tự tháp: tượng Nhân sư.',
+  'B|Tượng có thân sư tử, đầu người, dài khoảng bảy mươi ba mét, được tạc trực tiếp từ một khối đá vôi lớn.',
+  'A|Bức tượng bị mất mũi. Có một câu chuyện phổ biến rằng đạn pháo của quân Napoléon làm vỡ, nhưng các bức vẽ từ trước thời Napoléon đã cho thấy tượng không còn mũi rồi.',
+  'B|Vậy ai làm mất mũi tượng Nhân sư? Đến giờ vẫn là một câu đố. Nhà thám hiểm nhí, bạn nghĩ sao?']],
+ ['Đại Bảo tàng Ai Cập','Grand Egyptian Museum, Giza, Egypt',29.99472,31.11861,90,'Nơi trưng bày bộ sưu tập kho báu của vua Tutankhamun.',[
+  'A|Giờ chúng ta bay sang một tòa nhà hiện đại rất lớn gần các kim tự tháp: Đại Bảo tàng Ai Cập.',
+  'B|Đây là nơi trưng bày kho báu của vua Tutankhamun, cậu bé lên ngôi pharaoh khi mới khoảng chín tuổi.',
+  'A|Năm 1922, nhà khảo cổ Howard Carter tìm thấy lăng mộ của cậu gần như còn nguyên vẹn, với chiếc mặt nạ vàng nổi tiếng và hàng nghìn món đồ.',
+  'B|Có lời đồn về lời nguyền của pharaoh, rằng ai mở lăng sẽ gặp xui xẻo. Nhưng các nhà khoa học thì nói đó chỉ là chuyện kể cho thêm ly kỳ thôi.']],
+ ['Chợ Khan el-Khalili','Khan el-Khalili, Cairo, Egypt',30.04770,31.26220,180,'Khu chợ cổ có từ thế kỷ 14 ở trung tâm Cairo.',[
+  'A|Băng qua sông Nile, chúng ta tới trung tâm thủ đô Cairo, vào khu chợ cổ Khan el-Khalili.',
+  'B|Chợ có từ thế kỷ mười bốn, với những con hẻm ngoằn ngoèo bán đèn lồng đồng, gia vị, khăn và nước hoa.',
+  'A|Ở đây người ta mặc cả rất nhiệt tình. Người bán còn mời bạn ngồi uống trà bạc hà trước khi bàn chuyện giá cả.',
+  'B|Mùi quế, mùi hồi, tiếng gọi mời và những chiếc đèn màu lung linh. Giống như bước vào truyện Nghìn lẻ một đêm vậy.']],
+ ['Đền Karnak ở Luxor','Karnak Temple, Luxor, Egypt',25.71880,32.65727,90,'Đại sảnh có 134 cột đá khổng lồ.',[
+  'A|Chặng cuối, chúng ta bay dọc dòng sông Nile về phía nam, tới thành phố Luxor và đền Karnak.',
+  'B|Karnak là một trong những quần thể đền lớn nhất từng được xây. Đại sảnh của nó có một trăm ba mươi tư cột đá khổng lồ, đứng ở dưới bạn sẽ thấy mình bé xíu như con kiến.',
+  'A|Trên các cột còn khắc chữ tượng hình, loại chữ viết bằng hình vẽ của người Ai Cập cổ. Mỗi hình chim, hình mắt đều mang một ý nghĩa.',
+  'B|Chuyến phiêu lưu kết thúc rồi! Cảm ơn các nhà thám hiểm đã đi cùng WanderCast. Hẹn gặp lại ở chuyến đi tiếp theo nhé!']]]},
+
+{id:'newyork-vi',lang:'vi',e:'🗽',region:'world',theme:'funny',aud:['all','travel'],title:'New York: thành phố có quá nhiều thứ để kể',dest:'New York',hosts:['Nam','Mai'],
+ sum:'Một vòng Manhattan vui nhộn, kèm voi đi trên cầu.',stops:[
+ ['Tượng Nữ thần Tự do','Statue of Liberty, New York, USA',40.68925,-74.04450,330,'Món quà của nước Pháp, khánh thành năm 1886.',[
+  'A|Xin chào, đây là WanderCast! Mình là Nam, và tụi mình vừa bay qua Đại Tây Dương. Không có đồ ăn trên máy bay, thật đáng buồn.',
+  'B|Mình là Mai. Đừng buồn, nhìn xuống kìa: tượng Nữ thần Tự do, món quà nước Pháp tặng Mỹ, khánh thành năm 1886.',
+  'A|Tượng làm bằng đồng, ban đầu có màu nâu đỏ như đồng xu mới. Qua nhiều năm bị oxy hóa nên mới thành màu xanh như bây giờ.',
+  'B|Khung sắt bên trong được thiết kế bởi Gustave Eiffel. Lần này là thật nhé, không phải nhận vơ như ở Bưu điện Sài Gòn đâu.']],
+ ['Cầu Brooklyn','Brooklyn Bridge, New York, USA',40.70608,-73.99686,60,'Năm 1884, 21 con voi được dắt qua cầu để chứng minh cầu chắc chắn.',[
+  'A|Bay lên phía bắc, chúng ta tới cầu Brooklyn, cây cầu treo cổ kính nối Manhattan với Brooklyn.',
+  'B|Cầu khánh thành năm 1883. Lúc đầu nhiều người lo cầu sẽ sập, nên năm sau, ông bầu gánh xiếc P. T. Barnum đã dắt hai mươi mốt con voi đi qua cầu.',
+  'A|Đó là cách kiểm định chất lượng xịn nhất từng có. Voi đi qua không sập, vậy là cả thành phố yên tâm.',
+  'B|Giờ thì người ta đi bộ, đạp xe trên lối đi bằng gỗ ở giữa cầu, ngắm hoàng hôn sau những tòa nhà chọc trời.']],
+ ['Nhà ga Grand Central','Grand Central Terminal, New York, USA',40.75272,-73.97723,90,'Trần nhà vẽ các chòm sao bị ngược chiều.',[
+  'A|Tiếp theo là nhà ga Grand Central, một nhà ga đẹp tới mức người ta tới đây chỉ để ngắm, chẳng cần đi tàu.',
+  'B|Trên trần sảnh chính có vẽ bầu trời sao với các chòm sao. Nhưng có một vấn đề nhỏ: chúng bị vẽ ngược chiều!',
+  'A|Có giả thuyết cho rằng họ vẽ theo góc nhìn của Chúa từ bên ngoài bầu trời. Nghe như một lời bào chữa rất thông minh.',
+  'B|Còn có một hành lang thì thầm: hai người đứng ở hai góc chéo nhau, nói thật nhỏ vào tường, mà người kia vẫn nghe rõ. Thích hợp để tỏ tình, hoặc để rủ nhau đi ăn.']],
+ ['Quảng trường Thời Đại','Times Square, New York, USA',40.75800,-73.98552,0,'Mỗi đêm giao thừa, quả cầu pha lê thả xuống lúc nửa đêm.',[
+  'A|Giờ là Times Square, nơi ánh đèn quảng cáo sáng tới mức ban đêm trông như ban ngày.',
+  'B|Mỗi đêm giao thừa, khoảng một triệu người chen chúc ở đây để xem quả cầu pha lê thả xuống lúc nửa đêm. Nhiều người phải đứng chờ từ chiều.',
+  'A|Và không có nhà vệ sinh công cộng gần đó. Mình xin phép không đi giao thừa ở đây.',
+  'B|Nhưng ghé buổi tối thường ngày thì vui lắm: nhạc kịch Broadway, nghệ sĩ đường phố, và ai đó hóa trang thành siêu anh hùng đòi tiền chụp ảnh.']],
+ ['Công viên Trung tâm','Bethesda Terrace, Central Park, New York, USA',40.77405,-73.97085,0,'Công viên rộng khoảng 340 hecta giữa lòng Manhattan.',[
+  'A|Điểm cuối, chúng ta tìm chút yên bình ở Central Park, công viên rộng khoảng ba trăm bốn mươi hecta ngay giữa Manhattan.',
+  'B|Đây là quảng trường Bethesda với đài phun nước và tượng thiên thần, xuất hiện trong không biết bao nhiêu bộ phim.',
+  'A|Công viên được thiết kế từ giữa thế kỷ mười chín, và gần như mọi cái hồ, ngọn đồi ở đây đều do con người tạo ra.',
+  'B|Một thành phố của tham vọng, mà vẫn chừa chỗ cho cây xanh. Cảm ơn các bạn đã nghe WanderCast. Hẹn gặp lại, và nhớ ăn sáng đầy đủ nhé!']]]},
+
+{id:'wonders-vi',lang:'vi',e:'🌏',region:'world',theme:'adventure',aud:['kids','student','all'],title:'Vòng quanh 7 kỳ quan thế giới mới',dest:'7 kỳ quan thế giới mới',hosts:['Nam','Mai'],
+ sum:'Một chuyến bay vòng quanh Trái Đất, qua cả bảy kỳ quan được bình chọn năm 2007.',stops:[
+ ['Vạn Lý Trường Thành','Mutianyu Great Wall, Beijing, China',40.43802,116.56190,30,'Không thể nhìn thấy bằng mắt thường từ vũ trụ, đó là chuyện hiểu lầm.',[
+  'A|Chào mừng tới WanderCast phiên bản đặc biệt! Mình là Nam, hôm nay chúng ta bay vòng quanh Trái Đất để thăm bảy kỳ quan thế giới mới.',
+  'B|Mình là Mai. Bảy kỳ quan này được bình chọn bởi hàng triệu người và công bố năm 2007. Điểm đầu tiên: Vạn Lý Trường Thành ở Trung Quốc.',
+  'A|Đây không phải một bức tường duy nhất, mà là nhiều đoạn tường được xây qua nhiều triều đại, tổng chiều dài hàng chục nghìn kilômét.',
+  'B|Có một câu nói nổi tiếng rằng đứng trên vũ trụ nhìn thấy Vạn Lý Trường Thành bằng mắt thường. Thật ra là không nhé, tường hẹp quá, các phi hành gia đã xác nhận rồi.']],
+ ['Đền Taj Mahal','Taj Mahal, Agra, India',27.17501,78.04215,0,'Hoàng đế Shah Jahan xây để tưởng nhớ hoàng hậu Mumtaz Mahal.',[
+  'A|Từ Trung Quốc, chúng ta bay về phía tây nam tới Ấn Độ, hạ xuống thành phố Agra.',
+  'B|Trước mặt là Taj Mahal, lăng mộ bằng đá cẩm thạch trắng mà hoàng đế Shah Jahan xây để tưởng nhớ người vợ yêu, hoàng hậu Mumtaz Mahal.',
+  'A|Hàng chục nghìn thợ thủ công làm việc trong khoảng hai mươi năm. Đá cẩm thạch đổi màu theo ánh sáng: hồng lúc bình minh, trắng ban trưa, vàng óng khi hoàng hôn.',
+  'B|Người ta gọi đây là bản tình ca bằng đá. Một kỳ quan được xây nên từ tình yêu.']],
+ ['Thành cổ Petra','Al-Khazneh Treasury, Petra, Jordan',30.32221,35.45168,270,'Mặt tiền "Kho báu" được tạc thẳng vào vách đá hồng.',[
+  'A|Tiếp tục bay về phía tây, qua bán đảo Ả Rập, chúng ta tới Jordan và thành cổ Petra.',
+  'B|Người Nabataea cổ đại đã tạc cả thành phố vào vách núi sa thạch màu hồng. Đi qua một hẻm núi hẹp tên là Siq, bất ngờ hiện ra mặt tiền tráng lệ gọi là Kho báu.',
+  'A|Bạn có thể đã thấy nó trong phim Indiana Jones và cuộc thập tự chinh cuối cùng. Trong phim, chén Thánh được giấu bên trong.',
+  'B|Thực tế bên trong khá đơn giản, nhưng cái tài của người xưa là làm cả một kiệt tác từ trên xuống dưới, không có cơ hội sửa sai nếu đục hỏng.']],
+ ['Đấu trường Colosseum','Colosseum, Rome, Italy',41.89021,12.49223,0,'Kỳ quan duy nhất ở châu Âu trong danh sách.',[
+  'A|Băng qua Địa Trung Hải, chúng ta tới Rome, Ý, thăm kỳ quan duy nhất của châu Âu trong danh sách: đấu trường Colosseum.',
+  'B|Gần hai nghìn năm tuổi, từng chứa khoảng năm mươi nghìn khán giả xem các võ sĩ giác đấu.',
+  'A|Bạn có để ý không, một phần tường ngoài đã bị mất? Động đất và việc người ta lấy đá đi xây công trình khác qua nhiều thế kỷ là nguyên nhân.',
+  'B|Dù vậy, Colosseum vẫn là hình mẫu cho các sân vận động hiện đại, với lối ra vào được đánh số giúp đám đông vào ra nhanh chóng.']],
+ ['Chichén Itzá','El Castillo, Chichen Itza, Mexico',20.68297,-88.56860,0,'Vào ngày xuân phân, bóng nắng tạo hình con rắn trườn xuống bậc thang.',[
+  'A|Giờ là chặng bay dài nhất: vượt Đại Tây Dương tới bán đảo Yucatán ở Mexico, thăm thành phố cổ Chichén Itzá của người Maya.',
+  'B|Kim tự tháp El Castillo có bốn mặt, mỗi mặt chín mươi mốt bậc, cộng với bậc trên đỉnh thành ba trăm sáu mươi lăm, đúng bằng số ngày trong năm.',
+  'A|Vào ngày xuân phân và thu phân, bóng nắng in lên cạnh cầu thang trông như một con rắn khổng lồ đang trườn xuống. Người Maya đúng là bậc thầy thiên văn.',
+  'B|Còn nếu bạn vỗ tay trước kim tự tháp, tiếng vọng lại nghe giống tiếng chim. Âm học của người xưa làm nhiều nhà khoa học tò mò.']],
+ ['Machu Picchu','Machu Picchu, Peru',-13.16314,-72.54497,180,'Thành phố Inca trên núi, được giới thiệu với thế giới năm 1911.',[
+  'A|Bay xuống Nam Mỹ, vượt qua dãy Andes, chúng ta tới Machu Picchu ở Peru.',
+  'B|Thành phố của người Inca được xây vào thế kỷ mười lăm, nằm trên sườn núi cao khoảng hai nghìn bốn trăm mét, mây bay ngang qua như dải lụa.',
+  'A|Người Inca ghép đá khít tới mức không nhét lọt một lưỡi dao, mà không cần vữa. Nhờ vậy các bức tường chịu được động đất.',
+  'B|Năm 1911, nhà thám hiểm Hiram Bingham giới thiệu nơi này với thế giới, dù người dân địa phương đã biết tới nó từ lâu.']],
+ ['Tượng Chúa Cứu Thế','Christ the Redeemer, Rio de Janeiro, Brazil',-22.95192,-43.21049,0,'Tượng cao khoảng 30 mét, bị sét đánh vài lần mỗi năm.',[
+  'A|Chặng cuối, chúng ta bay về phía đông, tới Rio de Janeiro ở Brazil, nơi tượng Chúa Cứu Thế dang rộng vòng tay trên đỉnh núi Corcovado.',
+  'B|Tượng cao khoảng ba mươi mét, chưa kể bệ, hoàn thành năm 1931. Nó được ốp bằng hàng triệu mảnh đá xà phòng nhỏ.',
+  'A|Vì đứng trên đỉnh núi cao, tượng bị sét đánh vài lần mỗi năm, và các ngón tay từng phải được sửa lại.',
+  'B|Vậy là chúng ta đã bay vòng quanh Trái Đất, qua bảy kỳ quan. Cảm ơn các bạn đã đồng hành cùng WanderCast. Kỳ quan tiếp theo, biết đâu chính là nơi bạn sắp đặt chân tới!']]]}
+]);
+window.WC_TOURS = (window.WC_TOURS||[]).concat([
+{id:'ninhbinh-vi',lang:'vi',e:'🛶',region:'vn',theme:'cinematic',aud:['all','travel','student'],title:'Ninh Bình: Hạ Long trên cạn',dest:'Ninh Bình',hosts:['Nam','Mai'],
+ sum:'Cố đô Hoa Lư, núi đá vôi và những dòng sông xuyên hang.',stops:[
+ ['Cố đô Hoa Lư','Hoa Lu Ancient Capital, Ninh Binh, Vietnam',20.28600,105.90640,180,'Kinh đô của nhà Đinh, Tiền Lê và đầu nhà Lý.',[
+  'A|Chào mừng tới WanderCast, mình là Nam. Hôm nay chúng ta bay về Ninh Bình, nơi người ta hay gọi là Hạ Long trên cạn.',
+  'B|Mình là Mai. Điểm đầu tiên là cố đô Hoa Lư, kinh đô của Việt Nam trong khoảng bốn mươi năm, qua các triều Đinh, Tiền Lê và đầu nhà Lý.',
+  'A|Vua Đinh Bộ Lĩnh chọn nơi đây vì núi đá vôi bao quanh như một bức thành tự nhiên, rất dễ phòng thủ.',
+  'B|Năm 1010, vua Lý Thái Tổ ban Chiếu dời đô, chuyển kinh đô ra Thăng Long, tức Hà Nội ngày nay. Ở Hoa Lư vẫn còn đền thờ vua Đinh và vua Lê.']],
+ ['Tràng An','Trang An Scenic Landscape Complex, Ninh Binh, Vietnam',20.25500,105.89500,90,'Di sản hỗn hợp văn hóa và thiên nhiên đầu tiên của Việt Nam.',[
+  'A|Mình bay xuống phía nam, hạ thấp sát mặt nước. Trước mặt là Tràng An, nơi những con thuyền nhỏ len lỏi giữa núi đá và chui qua các hang xuyên thủy.',
+  'B|Năm 2014, Tràng An trở thành Di sản thế giới hỗn hợp đầu tiên của Việt Nam, được công nhận cả về văn hóa lẫn thiên nhiên.',
+  'A|Các nhà khảo cổ tìm thấy dấu vết người tiền sử sống trong hang động ở đây từ hàng chục nghìn năm trước.',
+  'B|Còn với người mê phim, đây là nơi đoàn làm phim Kong: Đảo Đầu Lâu từng ghi hình năm 2016. Ngồi thuyền đi qua, bạn sẽ hiểu vì sao Hollywood chọn nơi này.']],
+ ['Tam Cốc','Tam Coc, Ninh Binh, Vietnam',20.21540,105.93690,180,'Ba hang động trên sông Ngô Đồng, người chèo thuyền bằng chân.',[
+  'A|Tiếp theo là Tam Cốc, nghĩa là ba hang. Dòng sông Ngô Đồng chảy xuyên qua Hang Cả, Hang Hai và Hang Ba.',
+  'B|Mùa lúa chín, khoảng cuối tháng năm đầu tháng sáu, hai bên sông là một tấm thảm vàng ươm giữa núi đá xám.',
+  'A|Điều làm khách nước ngoài thích thú nhất là nhiều người lái đò ở đây chèo thuyền bằng chân, rất khéo và nhịp nhàng.',
+  'B|Vừa chèo bằng chân, tay còn rảnh để chỉ đường hoặc mời bạn mua nước. Đúng là kỹ năng đa nhiệm đỉnh cao!']],
+ ['Hang Múa','Hang Mua, Ninh Binh, Vietnam',20.22861,105.93167,90,'Khoảng 500 bậc đá dẫn lên đỉnh núi có tượng rồng.',[
+  'A|Giờ mình bay lên cao, tới đỉnh núi Múa. Thật ra muốn lên đây, bạn phải leo khoảng năm trăm bậc đá.',
+  'B|Trên đỉnh có tượng rồng uốn lượn trên sống núi. Từ đây nhìn xuống, cả vùng Tam Cốc với dòng sông và đồng lúa hiện ra như một bức tranh thủy mặc.',
+  'A|Tương truyền thời nhà Trần, vua thường về đây nghỉ, cho các cung nữ múa hát trong hang, nên mới có tên Hang Múa.',
+  'B|Lời khuyên: leo lúc sáng sớm hoặc chiều muộn để tránh nắng, và mang theo nước. Cảnh hoàng hôn ở đây thì không gì sánh bằng.']],
+ ['Chùa Bái Đính','Bai Dinh Pagoda, Ninh Binh, Vietnam',20.27500,105.86440,0,'Quần thể chùa rộng lớn với nhiều kỷ lục.',[
+  'A|Điểm cuối, chúng ta bay về phía tây, tới quần thể chùa Bái Đính trên sườn núi.',
+  'B|Đây là một trong những quần thể chùa lớn nhất Việt Nam, với hành lang dài có hàng trăm tượng La Hán bằng đá và những pho tượng Phật bằng đồng rất lớn.',
+  'A|Bên cạnh khu chùa mới còn có chùa Bái Đính cổ, nằm trong hang núi, gắn với thiền sư Nguyễn Minh Không thời Lý.',
+  'B|Từ cố đô nghìn năm tới thiên nhiên kỳ vĩ, Ninh Bình thật xứng đáng một chuyến đi. Cảm ơn các bạn đã nghe WanderCast, hẹn gặp lại!']]]},
+
+{id:'sapa-vi',lang:'vi',e:'🏔️',region:'vn',theme:'adventure',aud:['all','travel'],title:'Sa Pa: chinh phục nóc nhà Đông Dương',dest:'Sa Pa',hosts:['Nam','Mai'],
+ sum:'Mây, ruộng bậc thang, bản làng và đỉnh Fansipan 3.143 mét.',stops:[
+ ['Nhà thờ đá Sa Pa','Sapa Stone Church, Sa Pa, Lao Cai, Vietnam',22.33580,103.84280,180,'Nhà thờ đá do người Pháp xây, trái tim của thị trấn.',[
+  'A|Xin chào các nhà phiêu lưu, đây là WanderCast, mình là Nam. Mặc thêm áo ấm nhé, chúng ta đang bay lên vùng núi Tây Bắc!',
+  'B|Mình là Mai. Điểm xuất phát là thị trấn Sa Pa, cao khoảng một nghìn năm trăm mét. Đầu thế kỷ hai mươi, người Pháp xây nơi đây thành khu nghỉ dưỡng vì khí hậu mát mẻ.',
+  'A|Ngay giữa trung tâm là nhà thờ đá, được xây bằng đá xám vùng núi. Cuối tuần, quảng trường trước nhà thờ đông vui với người dân tộc Mông, Dao đi chợ, bán thổ cẩm.',
+  'B|Sa Pa có thể trải qua bốn mùa trong một ngày: sáng sương mù, trưa nắng nhẹ, chiều mát, tối lạnh. Nhớ mang áo khoác!']],
+ ['Bản Cát Cát','Cat Cat Village, Sa Pa, Lao Cai, Vietnam',22.32950,103.83140,200,'Bản của người Mông với nghề nhuộm chàm truyền thống.',[
+  'A|Chúng ta bay xuống thung lũng, tới bản Cát Cát của người Mông, chỉ cách thị trấn vài cây số.',
+  'B|Người Mông ở đây nổi tiếng với nghề dệt vải lanh và nhuộm chàm. Bàn tay những người phụ nữ thường nhuốm màu xanh của lá chàm.',
+  'A|Cuối bản có thác nước và một nhà máy thủy điện nhỏ do người Pháp xây từ đầu thế kỷ trước, giờ là điểm chụp ảnh rất đẹp.',
+  'B|Nhớ là đây là nơi người dân sinh sống, nên hãy xin phép trước khi chụp ảnh và mua đồ thủ công để ủng hộ họ.']],
+ ['Đèo Ô Quy Hồ','O Quy Ho Pass, Lao Cai, Vietnam',22.35320,103.76453,270,'Một trong "tứ đại đỉnh đèo" của miền Bắc.',[
+  'A|Giờ chúng ta bay dọc con đèo Ô Quy Hồ, uốn lượn giữa Lào Cai và Lai Châu.',
+  'B|Đây là một trong tứ đại đỉnh đèo của miền Bắc, dài khoảng năm mươi cây số. Có những đoạn mây trôi ngang mặt đường, bạn như đang đi trên trời.',
+  'A|Dân phượt rất mê con đèo này, nhất là lúc hoàng hôn, khi ánh nắng nhuộm vàng cả dãy Hoàng Liên Sơn.',
+  'B|Nhưng đèo dốc và nhiều sương, nên ai lái xe phải thật cẩn thận, bật đèn sương mù và đi chậm thôi.']],
+ ['Đỉnh Fansipan','Fansipan, Lao Cai, Vietnam',22.30330,103.77500,90,'Cao 3.143 mét, nóc nhà Đông Dương.',[
+  'A|Và đây là khoảnh khắc chúng ta chờ đợi: bay lên đỉnh Fansipan, cao ba nghìn một trăm bốn mươi ba mét, nóc nhà Đông Dương!',
+  'B|Ngày xưa, muốn lên đỉnh phải leo bộ hai, ba ngày. Từ năm 2016, có hệ thống cáp treo đưa bạn lên gần đỉnh chỉ trong khoảng hai mươi phút, và nó từng được Guinness ghi nhận kỷ lục.',
+  'A|Từ ga cáp treo, bạn còn phải leo khoảng sáu trăm bậc đá để chạm tới cột mốc tam giác inox trên đỉnh.',
+  'B|Nếu trời quang, bạn sẽ thấy biển mây trắng trải dài tới tận chân trời. Có hôm mùa đông, đỉnh núi còn phủ băng tuyết nữa đó.']],
+ ['Thung lũng Mường Hoa','Muong Hoa Valley, Sa Pa, Lao Cai, Vietnam',22.30500,103.87500,120,'Ruộng bậc thang và bãi đá cổ có những hình khắc bí ẩn.',[
+  'A|Điểm cuối, chúng ta lượn xuống thung lũng Mường Hoa, nơi ruộng bậc thang trải dài như những bậc cầu thang khổng lồ của người khổng lồ.',
+  'B|Những thửa ruộng này do người Mông, Dao, Giáy tạo nên qua nhiều thế hệ. Mùa nước đổ khoảng tháng năm, ruộng như những tấm gương soi bầu trời.',
+  'A|Trong thung lũng còn có bãi đá cổ với những hình khắc bí ẩn, đến nay các nhà khoa học vẫn chưa giải mã hết ý nghĩa.',
+  'B|Chuyến phiêu lưu lên nóc nhà Đông Dương kết thúc rồi. Cảm ơn các bạn đã nghe WanderCast, hẹn gặp lại ở chặng đường tiếp theo!']]]},
+
+{id:'cantho-vi',lang:'vi',e:'🛥️',region:'vn',theme:'funny',aud:['all','travel'],title:'Cần Thơ: miền Tây sông nước',dest:'Cần Thơ',hosts:['Nam','Mai'],
+ sum:'Chợ nổi, bến Ninh Kiều và nhà cổ trong phim Người tình.',stops:[
+ ['Chợ nổi Cái Răng','Cai Rang Floating Market, Can Tho, Vietnam',10.00380,105.74660,90,'Ghe bán gì thì treo món đó lên cây bẹo.',[
+  'A|Xin chào, đây là WanderCast! Mình là Nam, và tụi mình phải dậy lúc năm giờ sáng cho tập này.',
+  'B|Mình là Mai. Lý do là chợ nổi Cái Răng họp từ tờ mờ sáng. Hàng trăm chiếc ghe xuồng tụ lại trên sông Cần Thơ, mua bán trái cây, rau củ ngay trên mặt nước.',
+  'A|Cách quảng cáo ở đây rất thông minh: ghe bán gì thì treo món đó lên một cây sào cao gọi là cây bẹo. Thấy treo khóm là biết bán khóm, treo bí là bán bí.',
+  'B|Còn có ghe bán hủ tiếu, bán cà phê. Chủ ghe chèo sát lại, đưa tô hủ tiếu nóng qua mạn thuyền. Ăn sáng trên sông, chỉ có ở miền Tây!']],
+ ['Bến Ninh Kiều','Ninh Kieu Wharf, Can Tho, Vietnam',10.03400,105.78830,60,'Bến sông nổi tiếng trong câu hát "Cần Thơ là gạo trắng nước trong".',[
+  'A|Mình bay ngược dòng về trung tâm thành phố, tới bến Ninh Kiều nằm ở chỗ sông Cần Thơ gặp sông Hậu.',
+  'B|Đây là biểu tượng của Cần Thơ, có tượng Bác Hồ, có cây xanh, có gió sông mát rượi. Người miền Tây hay nói Cần Thơ gạo trắng nước trong, ai đi đến đó lòng không muốn về.',
+  'A|Buổi tối có cầu đi bộ Ninh Kiều đổi màu rực rỡ, và chợ đêm ngay bên cạnh với đủ thứ bánh xèo, ốc, lẩu mắm.',
+  'B|Lẩu mắm là phải thử nha, ăn với cả chục loại rau như bông điên điển, bông súng, kèo nèo. Nam đã chuẩn bị bụng chưa?',
+  'A|Bụng mình luôn trong tư thế sẵn sàng. Đó là phẩm chất cần có của người dẫn podcast du lịch.']],
+ ['Chùa Ông','Ong Pagoda, Can Tho, Vietnam',10.03230,105.78720,90,'Hội quán của người Hoa Quảng Đông, xây cuối thế kỷ 19.',[
+  'A|Ngay sát bến Ninh Kiều có một ngôi chùa mang kiến trúc người Hoa rất đẹp: chùa Ông, hay Quảng Triệu hội quán.',
+  'B|Chùa được cộng đồng người Hoa gốc Quảng Đông xây vào cuối thế kỷ mười chín, thờ Quan Công. Bên trong thơm mùi nhang vòng treo trên trần.',
+  'A|Nó nhắc chúng ta rằng miền Tây là nơi giao thoa của người Việt, người Hoa và người Khmer, nên văn hóa ẩm thực mới phong phú như vậy.',
+  'B|Như món hủ tiếu đó, tên gọi có gốc từ tiếng Hoa, nhưng cách ăn thì đậm chất miền Tây rồi.']],
+ ['Nhà cổ Bình Thủy','Binh Thuy Ancient House, Can Tho, Vietnam',10.07140,105.75870,180,'Bối cảnh của bộ phim Người tình năm 1992.',[
+  'A|Điểm cuối, chúng ta bay về quận Bình Thủy, tới một ngôi nhà cổ nằm giữa vườn cây xanh mát.',
+  'B|Nhà cổ Bình Thủy của dòng họ Dương được xây từ cuối thế kỷ mười chín, kết hợp kiến trúc Pháp bên ngoài và nội thất gỗ kiểu Việt bên trong.',
+  'A|Nơi này từng là bối cảnh của bộ phim Người tình của đạo diễn Jean-Jacques Annaud, ra mắt năm 1992, dựa theo tiểu thuyết của Marguerite Duras.',
+  'B|Sông nước, chợ nổi, nhà cổ và lẩu mắm. Cảm ơn các bạn đã đi miền Tây cùng WanderCast. Hẹn gặp lại, nhớ ghé Cần Thơ ăn hủ tiếu nha!']]]},
+
+{id:'phuquoc-vi',lang:'vi',e:'🏝️',region:'vn',theme:'kids',aud:['kids','relax','all'],title:'Phú Quốc: đảo ngọc cho cả nhà',dest:'Phú Quốc',hosts:['Nam','Mai'],
+ sum:'Biển xanh, làng chài và cáp treo vượt biển cho chuyến đi gia đình.',stops:[
+ ['Dinh Cậu','Dinh Cau Temple, Phu Quoc, Vietnam',10.21810,103.95730,270,'Ngôi miếu trên ghềnh đá, ngư dân cầu bình an trước khi ra khơi.',[
+  'A|Xin chào cả nhà! Đây là WanderCast, mình là anh Nam. Hôm nay chúng ta bay ra hòn đảo lớn nhất Việt Nam: đảo ngọc Phú Quốc!',
+  'B|Còn chị là chị Mai. Điểm đầu tiên là Dinh Cậu, một ngôi miếu nhỏ nằm trên ghềnh đá ở cửa sông Dương Đông.',
+  'A|Ngư dân trên đảo thường tới đây thắp hương cầu bình an trước khi ra khơi đánh cá. Họ tin Cậu sẽ phù hộ cho biển lặng, cá đầy khoang.',
+  'B|Buổi chiều, đây là nơi ngắm hoàng hôn rất đẹp. Mặt trời lặn xuống biển đỏ rực như một quả cam khổng lồ.']],
+ ['Làng chài Hàm Ninh','Ham Ninh Fishing Village, Phu Quoc, Vietnam',10.18050,104.05100,90,'Nổi tiếng với ghẹ luộc và cây cầu dài ra biển.',[
+  'A|Giờ mình bay qua giữa đảo, sang bờ đông, tới làng chài Hàm Ninh.',
+  'B|Ở đây có một cây cầu dài chạy thẳng ra biển. Lúc nước ròng, các bạn nhỏ có thể thấy cua, ốc bò lổm ngổm trên bãi.',
+  'A|Món nổi tiếng nhất làng là ghẹ luộc, thịt ngọt ơi là ngọt. Chấm với muối tiêu chanh của Phú Quốc thì hết sẩy.',
+  'B|Mà các bạn có biết không, Phú Quốc còn nổi tiếng với hồ tiêu và nước mắm. Nước mắm Phú Quốc còn được châu Âu bảo hộ chỉ dẫn địa lý đó.']],
+ ['Bãi Sao','Sao Beach, Phu Quoc, Vietnam',10.05710,104.03620,180,'Bãi cát trắng mịn như bột, nước trong xanh.',[
+  'A|Ai muốn đi tắm biển nào? Mình bay xuống phía nam đảo, tới Bãi Sao.',
+  'B|Cát ở đây trắng và mịn như bột, nước biển trong xanh, sóng nhẹ, rất hợp cho các bạn nhỏ nghịch nước và xây lâu đài cát.',
+  'A|Người ta kể tên Bãi Sao có thể vì ngày xưa ở đây có rất nhiều sao biển. Nếu thấy một bạn sao biển, mình chỉ ngắm thôi, đừng nhấc lên khỏi nước nhé.',
+  'B|Và nhớ thoa kem chống nắng, đội mũ, uống nhiều nước. Nắng biển Phú Quốc mạnh lắm đó!']],
+ ['Cáp treo Hòn Thơm','Hon Thom Cable Car, An Thoi, Phu Quoc, Vietnam',10.02560,104.01290,180,'Từng được Guinness ghi nhận là cáp treo ba dây vượt biển dài nhất thế giới.',[
+  'A|Điểm cuối là một chuyến bay đặc biệt: đi cáp treo Hòn Thơm, bay qua biển từ thị trấn An Thới.',
+  'B|Tuyến cáp treo dài gần tám cây số, từng được Guinness ghi nhận là cáp treo ba dây vượt biển dài nhất thế giới.',
+  'A|Từ cabin nhìn xuống, các bạn sẽ thấy những chiếc thuyền thúng, thuyền đánh cá đủ màu sắc nằm trên mặt biển xanh như ngọc, và quần đảo An Thới trải dài phía trước.',
+  'B|Chuyến đi đảo ngọc kết thúc rồi! Cảm ơn cả nhà đã bay cùng anh Nam và chị Mai. Hẹn gặp lại ở hòn đảo tiếp theo nha!']]]}
+]);
+window.WC_TOURS = (window.WC_TOURS||[]).concat([
+{id:'seoul-vi',lang:'vi',e:'🇰🇷',region:'world',theme:'expert',aud:['all','travel','student'],title:'Seoul: từ triều Joseon tới K-pop',dest:'Seoul',hosts:['Nam','Mai'],
+ sum:'Cung điện 600 năm tuổi, làng hanok và thủ đô của làn sóng Hàn Quốc.',stops:[
+ ['Cung Gyeongbokgung','Gyeongbokgung Palace, Seoul, South Korea',37.57961,126.97704,0,'Cung điện chính của triều Joseon, xây năm 1395.',[
+  'A|Annyeonghaseyo! Đây là WanderCast, mình là Nam. Hôm nay chúng ta bay tới Seoul, thủ đô Hàn Quốc.',
+  'B|Mình là Mai. Điểm đầu tiên là cung Gyeongbokgung, cung điện chính của triều đại Joseon, được xây năm 1395.',
+  'A|Cung từng bị thiêu rụi trong chiến tranh và được dựng lại nhiều lần. Mỗi ngày còn có nghi thức đổi gác với lính mặc trang phục cổ, trống và cờ rất rực rỡ.',
+  'B|Mẹo hay: nếu bạn mặc hanbok, trang phục truyền thống Hàn Quốc, bạn được vào cung miễn phí. Vì vậy sân cung lúc nào cũng đầy người mặc hanbok chụp ảnh.']],
+ ['Quảng trường Gwanghwamun','Gwanghwamun Square, Seoul, South Korea',37.57250,126.97690,180,'Tượng vua Sejong, người sáng tạo ra chữ Hangul.',[
+  'A|Ngay trước cổng cung là quảng trường Gwanghwamun, nơi có tượng vua Sejong Đại đế ngồi uy nghi.',
+  'B|Vua Sejong là người tạo ra bảng chữ cái Hangul vào thế kỷ mười lăm. Trước đó người Hàn dùng chữ Hán, rất khó cho dân thường học.',
+  'A|Hangul được thiết kế khoa học tới mức người ta nói một người chăm chỉ có thể học đọc trong vài ngày. Hình dạng phụ âm còn mô phỏng vị trí lưỡi và miệng khi phát âm.',
+  'B|Nhờ vậy, tỷ lệ biết chữ ở Hàn Quốc rất cao. Hàn Quốc còn có hẳn một ngày lễ để tôn vinh chữ Hangul vào ngày 9 tháng 10.']],
+ ['Làng Bukchon Hanok','Bukchon Hanok Village, Seoul, South Korea',37.58260,126.98310,90,'Hàng trăm ngôi nhà truyền thống hanok vẫn có người ở.',[
+  'A|Chúng ta bay lên những con dốc nhỏ giữa hai cung điện, tới làng Bukchon Hanok.',
+  'B|Ở đây có hàng trăm ngôi nhà hanok truyền thống, mái ngói đen cong, tường gỗ và giấy. Điều đặc biệt là người dân vẫn đang sống trong đó.',
+  'A|Vì khách du lịch đông quá, chính quyền đã đặt giờ giới hạn tham quan ở một số khu vực. Bạn nhớ đi nhẹ nói khẽ, đừng làm phiền cư dân nhé.',
+  'B|Nhà hanok có hệ thống sưởi sàn gọi là ondol, dẫn hơi nóng dưới nền nhà. Người Hàn đã có sàn sưởi từ hàng trăm năm trước rồi.']],
+ ['Tháp N Seoul','N Seoul Tower, Seoul, South Korea',37.55117,126.98820,0,'Trên núi Namsan, nổi tiếng với hàng rào ổ khóa tình yêu.',[
+  'A|Giờ chúng ta bay lên núi Namsan ở giữa thành phố, tới tháp N Seoul.',
+  'B|Từ đây bạn nhìn thấy cả Seoul, với sông Hàn uốn lượn chia thành phố làm hai nửa bắc và nam.',
+  'A|Quanh chân tháp có hàng rào phủ kín hàng nghìn ổ khóa tình yêu. Các cặp đôi khắc tên lên khóa, khóa lại và tin rằng tình yêu sẽ bền chặt.',
+  'B|Nhiều bộ phim truyền hình Hàn Quốc từng quay cảnh hẹn hò ở đây. Nếu bạn là fan K-drama, chắc chắn thấy quen lắm.']],
+ ['Gangnam và thư viện Starfield','Starfield Library, COEX Mall, Seoul, South Korea',37.51000,127.05980,90,'Kệ sách khổng lồ cao khoảng 13 mét giữa trung tâm thương mại.',[
+  'A|Điểm cuối, chúng ta bay qua sông Hàn xuống phía nam, tới quận Gangnam.',
+  'B|Cái tên này nổi tiếng toàn cầu nhờ bài hát Gangnam Style năm 2012 của PSY, video đầu tiên trên YouTube đạt một tỷ lượt xem.',
+  'A|Ở trung tâm thương mại COEX có thư viện Starfield với những kệ sách khổng lồ cao khoảng mười ba mét. Ai cũng có thể vào đọc miễn phí.',
+  'B|Từ cung điện sáu trăm năm tới làn sóng K-pop, Seoul luôn biết cách vừa giữ truyền thống vừa đi trước thời đại. Cảm ơn các bạn đã nghe WanderCast. Annyeong!']]]},
+
+{id:'bangkok-vi',lang:'vi',e:'🛕',region:'world',theme:'funny',aud:['all','travel'],title:'Bangkok: chùa vàng và đồ ăn đường phố',dest:'Bangkok',hosts:['Nam','Mai'],
+ sum:'Thành phố có tên dài nhất thế giới, Phật nằm 46 mét và phố ẩm thực Yaowarat.',stops:[
+ ['Hoàng cung Bangkok','Grand Palace, Bangkok, Thailand',13.75000,100.49130,0,'Nơi đặt tượng Phật Ngọc, được xây từ năm 1782.',[
+  'A|Sawasdee! Đây là WanderCast, mình là Nam. Câu đố mở màn: thành phố nào có tên đầy đủ dài nhất thế giới?',
+  'B|Mình là Mai, và đáp án là Bangkok! Người Thái gọi thủ đô là Krung Thep, còn tên nghi lễ đầy đủ dài tới mức được Guinness ghi nhận. Thôi, mình không đọc hết đâu.',
+  'A|Điểm đầu tiên là Hoàng cung, xây từ năm 1782. Bên trong có chùa Phật Ngọc, pho tượng nhỏ nhưng linh thiêng bậc nhất Thái Lan.',
+  'B|Mỗi năm, tượng Phật Ngọc được thay áo ba lần theo ba mùa, và nghi lễ thay áo do chính nhà vua chủ trì. Vào thăm nhớ mặc đồ kín vai, kín gối nhé.']],
+ ['Chùa Wat Pho','Wat Pho, Bangkok, Thailand',13.74650,100.49300,90,'Tượng Phật nằm dài khoảng 46 mét, cái nôi của massage Thái.',[
+  'A|Ngay sát vách là chùa Wat Pho, nhà của tượng Phật nằm khổng lồ.',
+  'B|Tượng dài khoảng bốn mươi sáu mét, dát vàng lấp lánh. Riêng lòng bàn chân đã cao hơn một người trưởng thành, khảm xà cừ rất tinh xảo.',
+  'A|Wat Pho còn được xem là cái nôi của massage Thái truyền thống. Sau khi đi bộ mỏi chân, bạn có thể được mát-xa ngay trong khuôn viên chùa.',
+  'B|Một nơi vừa để chiêm bái vừa để thư giãn. Thật là tiện lợi kiểu Thái Lan!']],
+ ['Chùa Bình Minh Wat Arun','Wat Arun, Bangkok, Thailand',13.74370,100.48880,90,'Tháp khảm sứ, hình ảnh in trên đồng xu 10 baht.',[
+  'A|Chúng ta bay qua sông Chao Phraya, tới Wat Arun, chùa Bình Minh.',
+  'B|Ngọn tháp chính được khảm hàng nghìn mảnh sứ và vỏ sò nhiều màu. Từ xa trông như được ren bằng hoa văn.',
+  'A|Tên là chùa Bình Minh, nhưng đẹp nhất lại là lúc hoàng hôn, khi mặt trời lặn phía sau tháp. Nghe hơi ngược đời nhưng ai đi rồi cũng công nhận.',
+  'B|Hình ảnh Wat Arun còn được in trên đồng xu mười baht. Có thể bạn đang có nó trong túi mà không để ý.']],
+ ['Phố Tàu Yaowarat','Yaowarat Road, Chinatown, Bangkok, Thailand',13.74010,100.50950,90,'Thiên đường ăn đêm của Bangkok.',[
+  'A|Trời tối rồi, và Nam đã đói. Chúng ta bay sang phố Tàu Yaowarat.',
+  'B|Khi đèn neon bật lên, con phố biến thành thiên đường ẩm thực đường phố: mì vịt, hải sản nướng, bánh bao, xôi xoài.',
+  'A|Món mình mê nhất là xôi xoài. Xôi nếp dẻo, nước cốt dừa béo và xoài chín vàng. Ăn một đĩa xong sẽ muốn gọi thêm đĩa nữa.',
+  'B|Và mình sẽ là người cản Nam gọi đĩa thứ ba. Đó là trách nhiệm của co-host.']],
+ ['Chợ cuối tuần Chatuchak','Chatuchak Weekend Market, Bangkok, Thailand',13.79990,100.55050,0,'Một trong những chợ lớn nhất thế giới với hơn mười nghìn gian hàng.',[
+  'A|Điểm cuối, chúng ta bay lên phía bắc tới chợ cuối tuần Chatuchak.',
+  'B|Đây là một trong những khu chợ lớn nhất thế giới, với hơn mười nghìn gian hàng bán từ quần áo, đồ cổ, cây cảnh tới thú cưng.',
+  'A|Mẹo sống còn: chụp lại bản đồ chợ và hẹn điểm gặp nhau trước. Vì lạc ở đây thì có khi tới chiều mới tìm thấy nhau.',
+  'B|Chùa vàng, sông nước và đồ ăn ngon. Cảm ơn các bạn đã nghe WanderCast. Khob khun kha, hẹn gặp lại!']]]},
+
+{id:'bali-vi',lang:'vi',e:'🌺',region:'world',theme:'chill',aud:['relax','all','travel'],title:'Bali: hòn đảo của các vị thần',dest:'Bali',hosts:['Nam','Mai'],
+ sum:'Rừng khỉ, ruộng bậc thang, đền nước thánh và hoàng hôn bên vách đá.',stops:[
+ ['Rừng khỉ Ubud','Sacred Monkey Forest Sanctuary, Ubud, Bali, Indonesia',-8.51880,115.25850,90,'Khu rừng thiêng với hàng trăm chú khỉ đuôi dài.',[
+  'A|Chào bạn, đây là WanderCast. Mình là Nam. Hít một hơi thật sâu nhé, chúng ta đang bay tới Bali, hòn đảo được gọi là đảo của các vị thần.',
+  'B|Mình là Mai. Khác với phần lớn Indonesia, đa số người Bali theo đạo Hindu, nên khắp đảo có hàng nghìn ngôi đền và những giỏ lễ vật nhỏ đặt trước mỗi cửa nhà.',
+  'A|Điểm đầu tiên là rừng khỉ Ubud, khu rừng thiêng với những ngôi đền cổ phủ rêu và hàng trăm chú khỉ đuôi dài.',
+  'B|Một lời khuyên chân thành: cất kính râm, mũ và đồ ăn thật kỹ. Các bạn khỉ ở đây rất lanh, giật đồ nhanh hơn bạn kịp chớp mắt.']],
+ ['Ruộng bậc thang Tegallalang','Tegallalang Rice Terrace, Bali, Indonesia',-8.43120,115.27930,0,'Gắn với hệ thống tưới tiêu Subak được UNESCO công nhận.',[
+  'A|Mình bay lên phía bắc Ubud, tới ruộng bậc thang Tegallalang, những bậc lúa xanh mướt uốn theo sườn đồi dưới tán dừa.',
+  'B|Người Bali dùng hệ thống tưới tiêu gọi là Subak, chia nước công bằng giữa các thửa ruộng, gắn với các ngôi đền nước. Cảnh quan văn hóa này được UNESCO công nhận là Di sản thế giới.',
+  'A|Sáng sớm ở đây rất yên bình, chỉ có tiếng chim và tiếng nước róc rách chảy qua các bờ ruộng.',
+  'B|Bạn cứ tưởng tượng mình đang ngồi trên chiếc xích đu cao, lơ lửng phía trên thung lũng xanh. Gió nhẹ thổi qua, mọi thứ chậm lại.']],
+ ['Đền Tirta Empul','Tirta Empul Temple, Bali, Indonesia',-8.41530,115.31530,0,'Đền nước thánh, người dân tắm gội để thanh tẩy.',[
+  'A|Tiếp theo là đền Tirta Empul, ngôi đền nước thánh có từ hơn một nghìn năm trước.',
+  'B|Nước suối trong vắt chảy ra từ hàng vòi đá vào các bể. Người Bali xếp hàng, chắp tay cầu nguyện rồi lần lượt gội đầu dưới từng vòi để thanh tẩy cơ thể và tâm hồn.',
+  'A|Du khách cũng có thể tham gia, nhưng phải mặc sarong và làm theo đúng nghi thức, với sự tôn trọng.',
+  'B|Tiếng nước chảy, mùi hương hoa sứ và nhang trầm. Đây là một trong những nơi yên tĩnh nhất của chuyến đi.']],
+ ['Đền Tanah Lot','Tanah Lot Temple, Bali, Indonesia',-8.62120,115.08680,270,'Ngôi đền trên mỏm đá giữa biển.',[
+  'A|Giờ mình bay về bờ biển phía tây nam, tới đền Tanah Lot nằm trên một mỏm đá giữa sóng biển.',
+  'B|Khi thủy triều lên, ngôi đền như tách khỏi đất liền, đứng một mình giữa biển. Khi nước rút, người ta mới đi bộ ra được chân đền.',
+  'A|Truyền thuyết kể rằng những con rắn biển canh giữ ngôi đền khỏi tà ma. Đến giờ vẫn có người tới xem rắn trong các hang đá dưới chân đền.',
+  'B|Hoàng hôn ở Tanah Lot là một trong những cảnh nổi tiếng nhất Bali. Bóng ngôi đền in lên nền trời cam tím, đẹp như một tấm bưu thiếp.']],
+ ['Đền Uluwatu','Uluwatu Temple, Bali, Indonesia',-8.82910,115.08490,180,'Đền trên vách đá cao, nơi diễn điệu múa lửa Kecak lúc hoàng hôn.',[
+  'A|Điểm cuối, chúng ta bay xuống mũi phía nam, tới đền Uluwatu trên vách đá cao sừng sững, nhìn thẳng ra Ấn Độ Dương.',
+  'B|Mỗi chiều ở đây có màn múa Kecak, hàng chục người đàn ông ngồi thành vòng tròn, đồng thanh hô cak cak cak, kể lại sử thi Ramayana bên ánh lửa.',
+  'A|Phía dưới là sóng biển trắng xóa vỗ vào chân vách đá. Ánh hoàng hôn dần tắt, chỉ còn tiếng hô vang và tiếng sóng.',
+  'B|Cảm ơn bạn đã thư giãn cùng WanderCast ở Bali. Chúc bạn một buổi tối nhẹ nhàng. Hẹn gặp lại!']]]},
+
+{id:'london-vi',lang:'vi',e:'💂',region:'world',theme:'cinematic',aud:['all','student','travel'],title:'London: những câu chuyện bên dòng Thames',dest:'London',hosts:['Nam','Mai'],
+ sum:'Big Ben, những con quạ của Tháp London và sân ga 9¾.',stops:[
+ ['Big Ben và Cung điện Westminster','Elizabeth Tower, Palace of Westminster, London, UK',51.50072,-0.12462,90,'Big Ben thật ra là tên chiếc chuông lớn bên trong tháp.',[
+  'A|Good evening! Đây là WanderCast, mình là Nam. Sương mù đang bao phủ London, và chúng ta hạ cánh ngay cạnh tháp đồng hồ nổi tiếng nhất thế giới.',
+  'B|Mình là Mai. Một sự thật bất ngờ: Big Ben không phải tên của tòa tháp, mà là tên chiếc chuông lớn nặng hơn mười ba tấn bên trong.',
+  'A|Còn tòa tháp thì từ năm 2012 được đặt tên là tháp Elizabeth, để kỷ niệm sáu mươi năm trị vì của Nữ hoàng Elizabeth Đệ Nhị.',
+  'B|Phía sau là Cung điện Westminster, nơi làm việc của Quốc hội Anh. Bên kia đường là Tu viện Westminster, nơi diễn ra lễ đăng quang của các vị vua Anh từ năm 1066.']],
+ ['Cung điện Buckingham','Buckingham Palace, London, UK',51.50140,-0.14190,90,'Nơi ở chính thức của nhà vua Anh tại London.',[
+  'A|Chúng ta bay qua công viên St James xanh mướt, tới Cung điện Buckingham.',
+  'B|Đây là nơi ở và làm việc chính thức của nhà vua Anh tại London. Khi lá cờ hoàng gia tung bay trên nóc, nghĩa là nhà vua đang có mặt.',
+  'A|Màn đổi gác với những người lính mũ lông gấu cao, áo đỏ, kèm ban nhạc diễu hành, thu hút hàng nghìn người xem.',
+  'B|Những chiếc mũ lông đó cao khoảng bốn mươi lăm phân. Đứng gác cả buổi mà không được cười, đúng là một công việc khó.']],
+ ['Bảo tàng Anh','British Museum, London, UK',51.51940,-0.12700,0,'Vào cửa miễn phí, nơi lưu giữ phiến đá Rosetta.',[
+  'A|Tiếp theo, chúng ta bay lên khu Bloomsbury, tới Bảo tàng Anh.',
+  'B|Bảo tàng được mở từ năm 1759, và bộ sưu tập thường trực vẫn miễn phí vào cửa. Hiện vật nổi tiếng nhất là phiến đá Rosetta.',
+  'A|Trên phiến đá có cùng một nội dung viết bằng ba loại chữ, trong đó có chữ tượng hình Ai Cập. Nhờ nó, các học giả mới giải mã được chữ tượng hình.',
+  'B|Cũng có nhiều tranh cãi về việc một số hiện vật nên được trả lại cho quốc gia gốc. Lịch sử của bảo tàng không chỉ nằm trong tủ kính, mà còn ở những câu hỏi đó.']],
+ ['Ga King\'s Cross','King\'s Cross Station, London, UK',51.53200,-0.12390,0,'Góc chụp ảnh "sân ga 9¾" với chiếc xe đẩy cắm vào tường.',[
+  'A|Giờ là điểm dừng dành cho các fan văn học: ga King’s Cross.',
+  'B|Trong loạt truyện Harry Potter, các học sinh đi xuyên qua bức tường để tới sân ga chín ba phần tư. Ở ga thật có hẳn một góc chụp ảnh với chiếc xe đẩy hành lý cắm nửa vào tường.',
+  'A|Hàng người xếp hàng chụp ảnh lúc nào cũng dài, kèm theo một chiếc khăn quàng màu nhà mà bạn chọn.',
+  'B|Một câu chuyện tưởng tượng lại tạo ra một địa danh thật. Đó là sức mạnh của văn chương.']],
+ ['Tháp London và Cầu Tháp','Tower of London, London, UK',51.50810,-0.07590,90,'Nơi giữ Vương miện hoàng gia và những con quạ huyền thoại.',[
+  'A|Điểm cuối, chúng ta bay dọc sông Thames về phía đông, tới Tháp London, pháo đài gần một nghìn năm tuổi.',
+  'B|Đây từng là cung điện, nhà tù, kho vũ khí, và giờ là nơi cất giữ bộ Vương miện hoàng gia Anh. Có những viên kim cương lớn bậc nhất thế giới nằm ở đây.',
+  'A|Truyền thuyết nói rằng nếu những con quạ rời khỏi Tháp London, vương quốc sẽ sụp đổ. Vì vậy luôn có ít nhất sáu con quạ được nuôi ở đây, có người chăm sóc riêng.',
+  'B|Ngay cạnh đó là Cầu Tháp, khánh thành năm 1894, thường bị nhầm là Cầu London. Cảm ơn các bạn đã nghe WanderCast. Cheerio, hẹn gặp lại!']]]}
+]);
+window.WC_TOURS = (window.WC_TOURS||[]).concat([
+{id:'hoian-en',lang:'en',e:'🏮',region:'vn',theme:'chill',aud:['all','relax'],title:'Hoi An at Lantern Hour',dest:'Hoi An',hosts:['Alex','Sam'],
+ sum:'A slow, cozy loop through the old town, its food and the Hoai River.',stops:[
+ ['Japanese Covered Bridge','Japanese Covered Bridge, Hoi An, Vietnam',15.87711,108.32602,90,'The bridge appears on Vietnam’s 20,000 dong note.',[
+  "A|Welcome to WanderCast, the podcast that flies you around the world with no luggage required. I'm Alex.",
+  "B|And I'm Sam. Today we're landing in the old town of Hoi An, central Vietnam, just as the first lanterns light up.",
+  'A|Right below us is the Japanese Covered Bridge, the little tiled-roof bridge printed on the twenty thousand dong note.',
+  'B|Tradition says it was built by the Japanese merchant community around the early seventeenth century. Monkey statues guard one end, dog statues the other.']],
+ ['Phuc Kien Assembly Hall','Phuc Kien Assembly Hall, Hoi An, Vietnam',15.87727,108.33027,10,'Built by Fujianese Chinese traders, honoring the sea goddess Thien Hau.',[
+  'A|We glide along Tran Phu street, over mossy rooftops, to the bright gate of the Phuc Kien Assembly Hall.',
+  'B|Chinese traders from Fujian built it as a meeting hall and temple to Thien Hau, the goddess who protects sailors.',
+  'A|Look up and you will see giant coils of incense hanging from the ceiling, each one burning slowly for days, each one a prayer.',
+  'B|Hoi An was once a booming trading port. Japanese, Chinese, Portuguese and Dutch ships all came here, and these halls are traces of that golden age.']],
+ ['Hoi An Central Market','Hoi An Central Market, Hoi An, Vietnam',15.87675,108.33063,200,'Locals say real cao lau needs water from the old Ba Le well.',[
+  'A|My stomach is officially rumbling, so our next stop is the central market.',
+  'B|This is cao lau heaven. Chewy golden noodles, sliced pork, crunchy croutons and fresh herbs. Locals swear it only tastes right with water from the ancient Ba Le well.',
+  'A|And of course the famous Hoi An banh mi, crackly bread stuffed to the edges.',
+  'B|Wash it down with nuoc mot, an herbal drink with lemongrass, cinnamon and lime leaves. Instantly refreshing.']],
+ ['Hoai River','Hoai River, Hoi An, Vietnam',15.87566,108.32852,250,'Floating a paper lantern on the river is a wish for luck.',[
+  'A|For our final stop we drift down to the Hoai River, where hundreds of paper lanterns float by.',
+  'B|On full moon nights the old town dims its electric lights so only lanterns glow. Hoi An has been a UNESCO World Heritage Site since 1999, and you can see why.',
+  'A|The splash of oars, a boatman humming an old folk tune, the smell of grilled corn on the bank.',
+  'B|Thanks for traveling with WanderCast. Make a wish, let your lantern go, and we will see you on the next flight.']]]},
+
+{id:'hanoi-en',lang:'en',e:'🐢',region:'vn',theme:'expert',aud:['student','all','travel'],title:'A Thousand Years of Hanoi in One Afternoon',dest:'Hanoi',hosts:['Alex','Sam'],
+ sum:'Layers of history in Vietnam’s capital, from 1070 to today.',stops:[
+ ['Hoan Kiem Lake','Hoan Kiem Lake, Hanoi, Vietnam',21.02874,105.85232,0,'The little Turtle Tower dates from around 1886.',[
+  "A|Welcome to WanderCast. I'm Alex, and today we fly through a thousand years of Hanoi in a single afternoon.",
+  "B|I'm Sam. We start at the heart of the city, Hoan Kiem Lake, with the tiny Turtle Tower sitting in the middle of the water.",
+  'A|Legend says that after defeating Ming invaders, King Le Loi was boating here when a golden turtle rose up and took back his magic sword. Hoan Kiem means Lake of the Returned Sword.',
+  'B|At dawn the lakeside is a whole world: tai chi, aerobics, badminton and old men debating over tea.']],
+ ['Temple of Literature','Temple of Literature, Hanoi, Vietnam',21.02935,105.83555,180,'82 stone steles of doctoral laureates rest on stone turtles.',[
+  'A|Heading west, we land among the mossy roofs of the Temple of Literature.',
+  'B|It was founded in 1070, and in 1076 the Imperial Academy opened here, often called Vietnam’s first university.',
+  'A|The highlight is 82 stone steles on the backs of stone turtles, engraved with the names of scholars who passed the royal exams. UNESCO lists them in its Memory of the World register.',
+  'B|Students still come here before exams to pray for luck. The turtles are fenced off now, so luck has to be wished for, not rubbed.']],
+ ['Hoa Lo Prison','Hoa Lo Prison, Hanoi, Vietnam',21.02529,105.84655,90,'Built by the French in 1896; American POWs called it the Hanoi Hilton.',[
+  'A|Next, a heavier chapter: Hoa Lo Prison.',
+  'B|The French built it in 1896 to hold Vietnamese revolutionaries. Later, during the Vietnam War, captured American pilots were held here and gave it the ironic nickname Hanoi Hilton.',
+  'A|Most of the complex was demolished for a high-rise, and the remaining part is now a museum.',
+  'B|Walking past those thick walls, history stops being something in a textbook.']],
+ ['Dong Xuan Market','Dong Xuan Market, Hanoi, Vietnam',21.03826,105.84964,0,'The Old Quarter’s biggest market, built in 1889.',[
+  'A|We finish in the Old Quarter, weaving through streets named after what they once sold: Silver Street, Paper Street, Salt Street.',
+  'B|And here is Dong Xuan Market, built in 1889, the biggest market in the Old Quarter.',
+  'A|Afterwards, grab bun cha, a bowl of grilled pork and noodles, or an egg coffee, rich and creamy like tiramisu in a cup.',
+  "B|A thousand years old, and still young at heart. Thanks for listening to WanderCast, see you next time!"]]]},
+
+{id:'kyoto-en',lang:'en',e:'⛩️',region:'world',theme:'cinematic',aud:['all','travel'],title:'Kyoto’s Quiet Mysteries',dest:'Kyoto',hosts:['Alex','Sam'],
+ sum:'Fox spirits, a stage built without nails, and a golden temple reborn from ashes.',stops:[
+ ['Fushimi Inari Taisha','Fushimi Inari Taisha, Kyoto, Japan',34.96714,135.77267,90,'Thousands of red torii gates climb Mount Inari.',[
+  "A|Welcome to WanderCast. I'm Alex, and tonight we fly to Kyoto, Japan’s capital for more than a thousand years.",
+  "B|I'm Sam. First stop: the tunnels of red torii gates at Fushimi Inari shrine.",
+  'A|There are thousands of gates, each donated by a person or a business hoping for prosperity. The donor’s name is written on the back.',
+  'B|Everywhere you look there are stone foxes, kitsune, the messengers of the god Inari. Walk up the mountain at dusk and it feels like someone is quietly watching.']],
+ ['Kiyomizu-dera','Kiyomizu-dera, Kyoto, Japan',34.99485,135.78504,250,'Its huge wooden stage stands without a single nail.',[
+  'A|We fly east up the slopes of Mount Otowa to Kiyomizu-dera temple, founded in 778.',
+  'B|Its famous wooden stage juts out over the hillside, held up by hundreds of pillars and not a single nail.',
+  "A|There is a Japanese saying: to jump off the stage at Kiyomizu, meaning to take a bold leap. People really did jump in the past, believing a survivor's wish would come true.",
+  "B|Please don't. Instead, drink from the Otowa waterfall below. Its three streams are said to bring health, love and success. Just pick one, greed cancels the luck."]],
+ ['Gion','Hanamikoji Street, Gion, Kyoto, Japan',35.00366,135.77514,180,'Kyoto’s famous geiko district.',[
+  'A|Night falls and we drop into Hanamikoji Street in Gion, lined with wooden machiya houses.',
+  "B|This is the world of geiko, Kyoto's word for geisha, and maiko, their apprentices, who train for years in dance, music and the tea ceremony.",
+  'A|If you are lucky, a kimono flashes past, wooden sandals clicking, then vanishes behind a sliding door.',
+  'B|They are on their way to work, so give them space and never block their path for a photo.']],
+ ['Kinkaku-ji','Kinkaku-ji, Kyoto, Japan',35.03937,135.72924,180,'A monk burned the original in 1950; it was rebuilt in 1955.',[
+  'A|Our final stop is the Golden Pavilion, Kinkaku-ji, shining over its mirror pond.',
+  'B|Its upper floors are covered in gold leaf. But in 1950 a young monk set fire to the original fourteenth century building and it burned to the ground.',
+  'A|The story haunted Japan so much that novelist Yukio Mishima turned it into a famous book. The pavilion you see today was rebuilt in 1955.',
+  "B|Sometimes beauty has to be reborn from ashes. Thanks for exploring Kyoto with WanderCast. Oyasumi, good night!"]]]},
+
+{id:'paris-en',lang:'en',e:'🗼',region:'world',theme:'cinematic',aud:['all','travel'],title:'Paris: City of Light and Second Chances',dest:'Paris',hosts:['Alex','Sam'],
+ sum:'From the Eiffel Tower to Montmartre, Paris through its twists of history.',stops:[
+ ['Eiffel Tower','Eiffel Tower, Paris, France',48.85837,2.29448,120,'Built for the 1889 World’s Fair and meant to last only 20 years.',[
+  "A|Bonjour! This is WanderCast, I'm Alex, and we are hovering over Paris facing the Eiffel Tower.",
+  "B|I'm Sam. It was built for the 1889 World's Fair, and many Parisian artists signed a letter protesting this ugly iron column.",
+  'A|It only had a twenty-year permit. One reason it survived was that it proved useful as a giant radio antenna.',
+  'B|Now it sparkles for a few minutes every hour after dark. The thing they called ugly became the symbol of a country.']],
+ ['Louvre Museum','Louvre Museum, Paris, France',48.86061,2.33764,90,'I. M. Pei’s glass pyramid opened in 1989.',[
+  'A|We fly east along the Seine to the Louvre.',
+  "B|Before it was a museum it was a fortress and then a royal palace. The glass pyramid by architect I. M. Pei opened in 1989, and yes, Parisians hated it at first too.",
+  'A|Inside is the Mona Lisa, smaller than you expect and always surrounded by a crowd.',
+  'B|In 1911 she was stolen, and that theft is a big part of why she became the most famous painting in the world.']],
+ ['Notre-Dame de Paris','Notre-Dame de Paris, Paris, France',48.85296,2.34990,90,'After the 2019 fire, the cathedral reopened in December 2024.',[
+  'A|Next we descend to the Île de la Cité, an island in the Seine, and Notre-Dame cathedral.',
+  'B|Construction began in the twelfth century. Victor Hugo’s novel, The Hunchback of Notre-Dame, helped save it from neglect in the 1800s.',
+  'A|In April 2019, the world watched fire destroy its roof and spire. After more than five years of restoration, it reopened in December 2024.',
+  'B|Carpenters even used medieval techniques to rebuild the oak roof frame. The past, saved by the skills of the past.']],
+ ['Montmartre','Sacré-Cœur, Montmartre, Paris, France',48.88671,2.34310,180,'The white basilica sits on the highest point in Paris.',[
+  'A|Our last stop: the hill of Montmartre and the white domes of Sacré-Cœur.',
+  'B|Its stone releases a white mineral when it rains, so the basilica stays bright. A century ago this hill was home to struggling artists like Picasso and Van Gogh.',
+  'A|In Place du Tertre, painters still sketch portraits for visitors. Sit for fifteen minutes and take a piece of Paris home.',
+  'B|Thanks for flying with WanderCast. Au revoir, see you on the next journey!']]]},
+
+{id:'egypt-en',lang:'en',e:'🐫',region:'world',theme:'kids',aud:['kids','student','all'],title:'Egypt: An Adventure with the Pharaohs',dest:'Egypt',hosts:['Alex','Sam'],
+ sum:'Pyramids, the Sphinx and King Tut’s treasure, told for curious kids.',stops:[
+ ['Great Pyramid of Giza','Great Pyramid of Giza, Egypt',29.97916,31.13420,0,'The only one of the Seven Wonders of the Ancient World still standing.',[
+  "A|Hello explorers! This is WanderCast, I'm Alex. Put on your sun hats, we are landing in the Egyptian desert!",
+  "B|I'm Sam. In front of us is the Great Pyramid of Giza, built for Pharaoh Khufu about four and a half thousand years ago.",
+  'A|It is made of around two million stone blocks, some heavier than a truck. For about three thousand eight hundred years, it was the tallest thing humans had ever built.',
+  'B|And it is the only one of the Seven Wonders of the Ancient World that is still standing today!']],
+ ['Great Sphinx','Great Sphinx of Giza, Egypt',29.97530,31.13757,270,'Lion body, human head, about 73 meters long.',[
+  'A|Let’s swoop down to meet the guardian of the pyramids: the Great Sphinx.',
+  'B|It has the body of a lion and the head of a human, and it is about seventy-three meters long, carved out of one giant piece of limestone.',
+  "A|The Sphinx is missing its nose! Some people blame Napoleon's soldiers, but drawings made before Napoleon arrived already show it without a nose.",
+  'B|So who took the nose? It is still a mystery. What do you think, explorers?']],
+ ['Grand Egyptian Museum','Grand Egyptian Museum, Giza, Egypt',29.99472,31.11861,90,'Home of King Tutankhamun’s treasures.',[
+  'A|Next, a giant modern building near the pyramids: the Grand Egyptian Museum.',
+  'B|It holds the treasures of Tutankhamun, a boy who became pharaoh when he was only about nine years old.',
+  "A|In 1922, archaeologist Howard Carter found his tomb almost untouched, with a famous golden mask and thousands of objects.",
+  "B|People told stories about a pharaoh's curse, but scientists say it is just a spooky tale to make the story more exciting."]],
+ ['Karnak Temple','Karnak Temple, Luxor, Egypt',25.71880,32.65727,90,'Its great hall has 134 giant stone columns.',[
+  'A|For our last stop, we fly south along the River Nile to Luxor and the temple of Karnak.',
+  'B|Its great hall has one hundred thirty-four giant stone columns. Standing below them, you would feel as small as an ant!',
+  'A|The columns are covered in hieroglyphs, the picture writing of ancient Egypt. Every bird and eye means something.',
+  'B|Adventure complete! Thank you for exploring with WanderCast. See you on the next trip, explorers!']]]},
+
+{id:'wonders-en',lang:'en',e:'🌏',region:'world',theme:'adventure',aud:['kids','student','all'],title:'Around the World: The 7 New Wonders',dest:'The New 7 Wonders',hosts:['Alex','Sam'],
+ sum:'One flight around the planet through all seven wonders voted in 2007.',stops:[
+ ['Great Wall of China','Mutianyu Great Wall, Beijing, China',40.43802,116.56190,30,'You cannot see it from space with the naked eye — that is a myth.',[
+  "A|Welcome to a special WanderCast. I'm Alex, and today we circle the planet to visit the New Seven Wonders of the World.",
+  "B|I'm Sam. These were chosen by millions of votes and announced in 2007. First up: the Great Wall of China.",
+  'A|It is not one single wall but many walls built over many dynasties, adding up to tens of thousands of kilometers.',
+  'B|And no, you cannot see it from space with your naked eye. It is far too narrow. Astronauts have confirmed it.']],
+ ['Taj Mahal','Taj Mahal, Agra, India',27.17501,78.04215,0,'Built by Emperor Shah Jahan in memory of Mumtaz Mahal.',[
+  'A|We fly southwest to Agra, India, and the Taj Mahal.',
+  'B|Emperor Shah Jahan built this white marble mausoleum in memory of his beloved wife, Mumtaz Mahal.',
+  'A|Tens of thousands of craftsmen worked for about twenty years. The marble changes color with the light: pink at dawn, white at noon, golden at sunset.',
+  'B|A love song written in stone.']],
+ ['Petra','Al-Khazneh Treasury, Petra, Jordan',30.32221,35.45168,270,'The Treasury facade is carved straight into rose-colored rock.',[
+  'A|Next stop: Jordan, and the ancient city of Petra.',
+  'B|The Nabataeans carved an entire city into pink sandstone cliffs. Walk through a narrow canyon called the Siq, and suddenly the Treasury appears.',
+  "A|You may have seen it in Indiana Jones and the Last Crusade.",
+  'B|Every detail was carved from the top down, with no chance to fix a mistake.']],
+ ['Colosseum','Colosseum, Rome, Italy',41.89021,12.49223,0,'The only wonder on the list in Europe.',[
+  'A|Across the Mediterranean to Rome and the Colosseum, the only European wonder on the list.',
+  'B|Almost two thousand years old, it once held around fifty thousand spectators watching gladiators.',
+  'A|Part of the outer wall is gone, lost to earthquakes and to people reusing its stone over the centuries.',
+  'B|Its numbered entrances still inspire how modern stadiums move huge crowds in and out.']],
+ ['Chichén Itzá','El Castillo, Chichen Itza, Mexico',20.68297,-88.56860,0,'At the equinox, sunlight draws a serpent down the stairs.',[
+  "A|Now the longest leg: across the Atlantic to Mexico's Yucatán Peninsula and the Maya city of Chichén Itzá.",
+  'B|The pyramid El Castillo has four sides of ninety-one steps each. Add the top platform and you get three hundred sixty-five, one for each day of the year.',
+  'A|At the spring and autumn equinox, shadows on the staircase look like a giant serpent sliding down.',
+  'B|Clap your hands in front of it and the echo sounds like a bird chirping. Ancient acoustics at work.']],
+ ['Machu Picchu','Machu Picchu, Peru',-13.16314,-72.54497,180,'An Inca citadel high in the Andes.',[
+  'A|South now, over the Andes, to Machu Picchu in Peru.',
+  'B|The Incas built it in the fifteenth century, around two thousand four hundred meters up, with clouds drifting by like silk.',
+  'A|Their stones fit so tightly that not even a knife blade slips between them, no mortar needed, which helps the walls survive earthquakes.',
+  'B|In 1911, explorer Hiram Bingham brought it to the world’s attention, though local farmers had known about it all along.']],
+ ['Christ the Redeemer','Christ the Redeemer, Rio de Janeiro, Brazil',-22.95192,-43.21049,0,'About 30 meters tall and struck by lightning several times a year.',[
+  'A|Final stop: Rio de Janeiro, Brazil, where Christ the Redeemer opens its arms above the city.',
+  'B|It stands about thirty meters tall, not counting the pedestal, and was finished in 1931, covered in millions of small soapstone tiles.',
+  'A|Up on that peak it gets hit by lightning several times a year, and its fingers have needed repairs.',
+  'B|That is all seven wonders and one full lap of the planet. Thanks for flying with WanderCast. The next wonder might be wherever you go next!']]]}
+]);
+window.WC_TOURS = (window.WC_TOURS||[]).concat([
+{id:'rome-en',lang:'en',e:'🏛️',region:'world',theme:'expert',aud:['student','all'],title:'Rome: Ancient History in 20 Minutes',dest:'Rome',hosts:['Alex','Sam'],
+ sum:'A lively history lesson for students and the curious.',stops:[
+ ['Colosseum','Colosseum, Rome, Italy',41.89021,12.49223,0,'Opened in 80 AD, it held around 50,000 spectators.',[
+  "A|Welcome to WanderCast. I'm Alex, and today's history class has no desks, because we are taking it in the sky above Rome.",
+  "B|I'm Sam. Lesson one: the Colosseum. It opened in 80 AD and could hold around fifty thousand spectators.",
+  'A|Below the arena floor was a maze of tunnels with lifts that could suddenly raise wild animals into the fight.',
+  'B|There was even a huge fabric awning stretched over the top to shade the crowd. Retractable roofs, two thousand years ago.']],
+ ['Roman Forum','Roman Forum, Rome, Italy',41.89246,12.48533,270,'The political, religious and commercial heart of ancient Rome.',[
+  'A|Next door is the Roman Forum. Today it is columns and ruins, but imagine it full of temples, courts and market stalls.',
+  'B|Julius Caesar was assassinated in 44 BC, and his body was cremated right here. People still leave flowers at the spot.',
+  'A|Memory tip for students: S P Q R, carved everywhere, stands for the Senate and People of Rome.',
+  'B|It was basically the ancient world’s city hall, shopping mall and newsroom in one.']],
+ ['Pantheon','Pantheon, Rome, Italy',41.89861,12.47687,0,'Still the largest unreinforced concrete dome in the world.',[
+  'A|We fly over cobbled streets to the Pantheon, completed around 125 AD under Emperor Hadrian.',
+  'B|Nearly two thousand years later, its dome is still the largest unreinforced concrete dome on Earth.',
+  'A|At the top is a round opening about nine meters wide, the oculus. When it rains, water falls straight in and drains through tiny holes in the floor.',
+  'B|The secret is Roman concrete mixed with volcanic ash, and lighter materials used higher up. Physics and chemistry in one building.']],
+ ['Trevi Fountain','Trevi Fountain, Rome, Italy',41.90093,12.48331,0,'Toss a coin over your shoulder to return to Rome.',[
+  'A|Break time: the Trevi Fountain, finished in 1762 and fed by an ancient Roman aqueduct.',
+  'B|Tradition says: turn your back, toss a coin with your right hand over your left shoulder, and you will return to Rome.',
+  'A|Estimates say over a million euros in coins are collected each year, and the money goes to charity.',
+  'B|That is a lot of people planning to come back.']],
+ ["St. Peter's Basilica","St. Peter's Basilica, Vatican City",41.90216,12.45392,90,'Vatican City is the smallest country in the world.',[
+  'A|Final stop: we cross the Tiber and a national border, no passport needed, into Vatican City.',
+  'B|It is the smallest country in the world, under half a square kilometer. The huge dome of St Peter’s Basilica was designed by Michelangelo.',
+  'A|Nearby, he spent about four years painting the Sistine Chapel ceiling, mostly standing on scaffolding with his head tilted back.',
+  "B|Class dismissed! Homework: tell someone one thing you remember. Thanks for listening to WanderCast!"]]]},
+
+{id:'newyork-en',lang:'en',e:'🗽',region:'world',theme:'funny',aud:['all','travel'],title:'New York: Too Many Stories for One City',dest:'New York',hosts:['Alex','Sam'],
+ sum:'A fun loop around Manhattan, with elephants on a bridge.',stops:[
+ ['Statue of Liberty','Statue of Liberty, New York, USA',40.68925,-74.04450,330,'A gift from France, dedicated in 1886.',[
+  "A|Hello and welcome to WanderCast! I'm Alex, and we just flew across the Atlantic. No in-flight snacks. Tragic.",
+  "B|I'm Sam. Cheer up and look down: the Statue of Liberty, a gift from France, dedicated in 1886.",
+  'A|She is made of copper and was originally a shiny reddish brown. Decades of oxidation turned her green.',
+  'B|And her iron skeleton was engineered by Gustave Eiffel. Yes, that Eiffel.']],
+ ['Brooklyn Bridge','Brooklyn Bridge, New York, USA',40.70608,-73.99686,60,'In 1884, 21 elephants crossed to prove it was safe.',[
+  'A|Up next, the Brooklyn Bridge, opened in 1883.',
+  'B|People worried it might collapse, so in 1884 showman P. T. Barnum marched twenty-one elephants across it.',
+  'A|Best safety inspection in history. Elephants crossed, bridge stayed, city relaxed.',
+  'B|Today you can walk or cycle the wooden promenade and watch the sunset behind the skyline.']],
+ ['Grand Central Terminal','Grand Central Terminal, New York, USA',40.75272,-73.97723,90,'The ceiling constellations are painted backwards.',[
+  'A|Grand Central Terminal, a station so beautiful people visit without catching a train.',
+  'B|The main hall ceiling shows the night sky with its constellations. Small problem: they are painted backwards.',
+  'A|One theory says it is the view from outside the sky, looking in. A very clever excuse.',
+  'B|There is also a whispering gallery: stand in opposite corners, whisper into the wall, and your friend hears you clearly. Perfect for confessions, or for suggesting lunch.']],
+ ['Times Square','Times Square, New York, USA',40.75800,-73.98552,0,'The New Year’s Eve ball drops here at midnight.',[
+  'A|Times Square, where the billboards are so bright night looks like day.',
+  'B|Every New Year’s Eve, huge crowds pack in to watch the ball drop at midnight, many waiting since the afternoon.',
+  'A|With famously few restrooms nearby. I will be watching from home, thank you.',
+  'B|On a normal evening it is great fun: Broadway shows, street performers, and someone dressed as a superhero asking for tips.']],
+ ['Central Park','Bethesda Terrace, Central Park, New York, USA',40.77405,-73.97085,0,'About 340 hectares of green in the middle of Manhattan.',[
+  'A|Final stop: some peace in Central Park, about three hundred forty hectares in the middle of Manhattan.',
+  'B|Here is Bethesda Terrace with its angel fountain, featured in more movies than anyone can count.',
+  'A|The park was designed in the mid eighteen hundreds, and almost every lake and hill here was made by people.',
+  "B|A city of big ambitions that still saved room for trees. Thanks for listening to WanderCast. Don't skip breakfast!"]]]},
+
+{id:'seoul-en',lang:'en',e:'🇰🇷',region:'world',theme:'expert',aud:['all','travel','student'],title:'Seoul: From the Joseon Dynasty to K-pop',dest:'Seoul',hosts:['Alex','Sam'],
+ sum:'A 600-year-old palace, hanok alleys and the capital of the Korean wave.',stops:[
+ ['Gyeongbokgung Palace','Gyeongbokgung Palace, Seoul, South Korea',37.57961,126.97704,0,'The main palace of the Joseon dynasty, built in 1395.',[
+  "A|Annyeonghaseyo! This is WanderCast, I'm Alex. Today we fly to Seoul, the capital of South Korea.",
+  "B|I'm Sam. First stop: Gyeongbokgung, the main palace of the Joseon dynasty, built in 1395.",
+  'A|It was burned and rebuilt several times. Today there is a colorful changing of the guard ceremony with drums, flags and traditional uniforms.',
+  'B|Pro tip: wear a hanbok, the traditional Korean dress, and you get in free. That is why the courtyards are full of people in hanbok taking photos.']],
+ ['Gwanghwamun Square','Gwanghwamun Square, Seoul, South Korea',37.57250,126.97690,180,'Statue of King Sejong, creator of the Hangul alphabet.',[
+  'A|Right in front of the palace is Gwanghwamun Square, with a giant statue of King Sejong the Great.',
+  'B|In the fifteenth century he created Hangul, the Korean alphabet, so ordinary people could learn to read instead of struggling with Chinese characters.',
+  "A|It is so logical that a motivated learner can start reading it in a few days. The consonant shapes even mirror the mouth and tongue positions.",
+  'B|Korea even has a national holiday for its alphabet, Hangul Day, on October 9th.']],
+ ['N Seoul Tower','N Seoul Tower, Seoul, South Korea',37.55117,126.98820,0,'Famous for its fences covered in love locks.',[
+  'A|Now we fly up Namsan mountain to N Seoul Tower.',
+  'B|From here you can see the whole city, with the Han River curving through and splitting Seoul into north and south.',
+  'A|Around the base are fences covered with thousands of love locks. Couples write their names, lock them on, and hope their love lasts.',
+  'B|If you watch K-dramas, this place will look very familiar. Countless date scenes were filmed here.']],
+ ['Gangnam and Starfield Library','Starfield Library, COEX Mall, Seoul, South Korea',37.51000,127.05980,90,'Giant bookshelves about 13 meters tall inside a mall.',[
+  'A|Last stop: across the Han River to Gangnam.',
+  "B|The name went global with PSY's 2012 hit Gangnam Style, the first YouTube video to reach a billion views.",
+  'A|Inside the COEX mall is Starfield Library, with bookshelves about thirteen meters tall, free for anyone to sit and read.',
+  'B|From a six-hundred-year-old palace to the Korean wave, Seoul keeps tradition and the future side by side. Thanks for listening to WanderCast. Annyeong!']]]},
+
+{id:'bangkok-en',lang:'en',e:'🛕',region:'world',theme:'funny',aud:['all','travel'],title:'Bangkok: Golden Temples and Street Food',dest:'Bangkok',hosts:['Alex','Sam'],
+ sum:'The city with the world’s longest name, a 46-meter Buddha and Chinatown’s night food.',stops:[
+ ['Grand Palace','Grand Palace, Bangkok, Thailand',13.75000,100.49130,0,'Home of the Emerald Buddha, built from 1782.',[
+  "A|Sawasdee! This is WanderCast, I'm Alex. Quiz to start: which city has the longest full name in the world?",
+  "B|I'm Sam, and the answer is Bangkok. Its full ceremonial name is so long it holds a Guinness record. We will not be reading it out.",
+  'A|First stop, the Grand Palace, begun in 1782, home of the Emerald Buddha, Thailand’s most sacred image.',
+  'B|Three times a year its robes are changed for the season, in a ceremony led by the King. Visitors need shoulders and knees covered.']],
+ ['Wat Pho','Wat Pho, Bangkok, Thailand',13.74650,100.49300,90,'A 46-meter reclining Buddha and the home of Thai massage.',[
+  'A|Next door is Wat Pho and its gigantic reclining Buddha, about forty-six meters long and covered in gold.',
+  'B|The soles of the feet alone are taller than a person, inlaid with mother of pearl.',
+  'A|Wat Pho is also known as the birthplace of traditional Thai massage, and you can get one right on the temple grounds.',
+  'B|Spiritual and relaxing at the same time. Very efficient.']],
+ ['Wat Arun','Wat Arun, Bangkok, Thailand',13.74370,100.48880,90,'Its porcelain-covered tower is on the 10 baht coin.',[
+  'A|Across the Chao Phraya River is Wat Arun, the Temple of Dawn.',
+  'B|Its main tower is covered in thousands of pieces of colorful porcelain and seashells.',
+  'A|It is called the Temple of Dawn, but it is most beautiful at sunset. Slightly confusing, totally worth it.',
+  'B|You can also find it on the ten baht coin, so you may already be carrying it in your pocket.']],
+ ['Yaowarat Chinatown','Yaowarat Road, Chinatown, Bangkok, Thailand',13.74010,100.50950,90,'Bangkok’s favorite late-night food street.',[
+  'A|Night falls, I am hungry, so we fly to Yaowarat, Bangkok’s Chinatown.',
+  'B|When the neon lights come on it becomes a street food paradise: duck noodles, grilled seafood, dumplings and mango sticky rice.',
+  'A|Mango sticky rice is my weakness. Sticky rice, rich coconut cream and perfectly ripe mango.',
+  "B|And I'm the co-host who stops you ordering the third plate. Thanks for listening to WanderCast. Khob khun, see you next time!"]]]},
+
+{id:'bali-en',lang:'en',e:'🌺',region:'world',theme:'chill',aud:['relax','all','travel'],title:'Bali: Island of the Gods',dest:'Bali',hosts:['Alex','Sam'],
+ sum:'Monkey forest, rice terraces, a holy spring and a clifftop sunset.',stops:[
+ ['Ubud Monkey Forest','Sacred Monkey Forest Sanctuary, Ubud, Bali, Indonesia',-8.51880,115.25850,90,'A sacred forest full of long-tailed macaques.',[
+  "A|Hi, this is WanderCast. I'm Alex. Take a deep breath, we are flying to Bali, the Island of the Gods.",
+  "B|I'm Sam. Unlike most of Indonesia, most Balinese are Hindu, so the island is full of temples and tiny offering baskets placed at every doorway.",
+  'A|First stop, Ubud’s Sacred Monkey Forest, with mossy old temples and hundreds of long-tailed macaques.',
+  'B|Honest advice: hide your sunglasses, hat and snacks. These monkeys are faster than you think.']],
+ ['Tegallalang Rice Terraces','Tegallalang Rice Terrace, Bali, Indonesia',-8.43120,115.27930,0,'Linked to the UNESCO-listed Subak irrigation system.',[
+  'A|North of Ubud, the Tegallalang rice terraces curve down the hillside under coconut palms.',
+  'B|The Balinese share water through a system called Subak, tied to water temples. This cultural landscape is a UNESCO World Heritage site.',
+  'A|Early morning here is so peaceful, just birdsong and water trickling between the paddies.',
+  'B|Imagine sitting on a tall swing above the green valley. A soft breeze, and everything slows down.']],
+ ['Tanah Lot','Tanah Lot Temple, Bali, Indonesia',-8.62120,115.08680,270,'A temple on a rock in the sea.',[
+  'A|Now to the southwest coast and Tanah Lot, a temple perched on a rock in the waves.',
+  'B|At high tide it looks completely cut off from land. At low tide you can walk out to its base.',
+  'A|Legend says sea snakes guard the temple from evil spirits.',
+  'B|Sunset here is one of Bali’s most famous views, the temple silhouetted against an orange and violet sky.']],
+ ['Uluwatu Temple','Uluwatu Temple, Bali, Indonesia',-8.82910,115.08490,180,'A clifftop temple with the Kecak fire dance at sunset.',[
+  'A|Final stop, the southern tip of the island: Uluwatu Temple, high on a cliff above the Indian Ocean.',
+  'B|Every evening there is a Kecak dance. Dozens of men sit in a circle chanting cak cak cak, telling the Ramayana epic by firelight.',
+  'A|Below, white waves crash against the cliff as the light fades.',
+  'B|Thanks for relaxing with WanderCast in Bali. Have a gentle evening, and see you next time.']]]},
+
+{id:'london-en',lang:'en',e:'💂',region:'world',theme:'cinematic',aud:['all','student','travel'],title:'London: Stories Along the Thames',dest:'London',hosts:['Alex','Sam'],
+ sum:'Big Ben, the ravens of the Tower and Platform 9¾.',stops:[
+ ['Big Ben and Westminster','Elizabeth Tower, Palace of Westminster, London, UK',51.50072,-0.12462,90,'Big Ben is actually the name of the great bell inside.',[
+  "A|Good evening, this is WanderCast. I'm Alex. Fog is rolling over London as we land beside the world’s most famous clock tower.",
+  "B|I'm Sam. Surprise fact: Big Ben is not the tower. It is the name of the great bell inside, weighing over thirteen tonnes.",
+  'A|The tower itself was renamed Elizabeth Tower in 2012, for Queen Elizabeth the Second’s Diamond Jubilee.',
+  'B|Behind it is the Palace of Westminster, home of Parliament, and across the road Westminster Abbey, where English monarchs have been crowned since 1066.']],
+ ['British Museum','British Museum, London, UK',51.51940,-0.12700,0,'Free to enter, home of the Rosetta Stone.',[
+  'A|We fly north to Bloomsbury and the British Museum, opened in 1759 and still free to visit.',
+  'B|Its most famous object is the Rosetta Stone, with the same text in three scripts, including Egyptian hieroglyphs. It helped scholars finally decode them.',
+  'A|There are also ongoing debates about whether some objects should be returned to the countries they came from.',
+  'B|So the museum’s story is not only in the glass cases, but in those questions too.']],
+ ["King's Cross Station","King's Cross Station, London, UK",51.53200,-0.12390,0,'The Platform 9¾ photo spot with a trolley in the wall.',[
+  "A|Next, a stop for book lovers: King's Cross station.",
+  'B|In the Harry Potter books, students run through a wall to reach Platform nine and three quarters. The real station has a photo spot with a luggage trolley half-vanished into the wall.',
+  'A|The queue is always long, and you get to pick a house scarf for your photo.',
+  'B|An imaginary story created a very real landmark. That is the power of books.']],
+ ['Tower of London','Tower of London, London, UK',51.50810,-0.07590,90,'Home of the Crown Jewels and the legendary ravens.',[
+  'A|Final stop, east along the Thames to the Tower of London, a fortress almost a thousand years old.',
+  'B|It has been a palace, a prison and an armory, and now it guards the Crown Jewels.',
+  'A|Legend says that if the ravens ever leave the Tower, the kingdom will fall. So at least six ravens are always kept here, with their own keeper.',
+  "B|Right beside it is Tower Bridge, opened in 1894 and often mistaken for London Bridge. Thanks for listening to WanderCast. Cheerio!"]]]}
+]);
+</script>
+<script>/* WanderCast — standalone adapter: MapLibre satellite globe + Google Street View + Google Photorealistic 3D; Gemini / Wikipedia content */
+(function(){
+'use strict';
+let ctx = null;
+const st = (k,d) => ctx.store.get(k,d), ss = (k,v) => ctx.store.set(k,v);
+const $ = s => document.querySelector(s);
+const R = Math.PI/180;
+const M = { ready:null, ok:false, map:null, agent:null, pins:[], mode:'sat', active:'sat', raf:0, hold:0, sv:null, svSvc:null, m3d:null, g:null, tour:false, idle:0, walkAt:0 };
+
+const L = {
+  vi:{pano:'🚶 Đi vào 360°',sat:'🛰️ Vệ tinh 3D',sv:'🔑 Street View đi bộ',g3d:'🔑 Google 3D',
+    npano:'Miễn phí, không cần key: agent bay tới rồi đáp xuống góc nhìn 360° ngoài đường phố (ảnh Google Street View). Điểm gần nhau thì tự đi bộ theo đường phố thật; tới nơi thì đi dạo vòng quanh công trình trong lúc host kể. Kéo chuột để tự nhìn (app sẽ đứng yên chờ bạn). Nơi nào không có ảnh 360°, bấm nút 🛰️ để xem vệ tinh.',
+    toMap:'🛰️ Xem vệ tinh', toPano:'🚶 Vào 360°', noMap:'Không tải được bản đồ ở đây (khung xem trước có thể chặn). Podcast vẫn phát. Để xem bản đồ và 360°, hãy tải file về máy rồi mở bằng Edge hoặc Chrome.',
+    nsat:'Miễn phí, không cần key: ảnh vệ tinh Esri + địa hình 3D. Giữ chuột phải (hoặc Ctrl + kéo) để xoay, nghiêng.',
+    nsv:'Agent bay tới rồi "đáp" xuống Street View và đi bộ quanh điểm dừng. Cần Google Maps API key (mục Cài đặt nâng cao).',
+    ng3d:'Thành phố 3D chân thực kiểu Google Earth. Cần Google Maps API key và bật Map Tiles API. Một số nơi chưa có 3D.',
+    gem:'Gemini API key',gemN:'Lấy miễn phí tại <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Chưa có key: app tự ghép kịch bản từ Wikipedia (ít tuỳ biến theo theme hơn).',
+    model:'Gemini model',gm:'Google Maps API key',gmN:'Dùng cho Street View và Google 3D. Trong Google Cloud: bật Maps JavaScript API + Map Tiles API, tạo key. Có hạn mức miễn phí hàng tháng; vượt sẽ tính phí.',
+    refine:'Chính xác hoá toạ độ bằng OpenStreetMap',saved:'Đã lưu',needKey:'Chế độ này cần Google Maps API key → mở "Cài đặt nâng cao". Tạm dùng vệ tinh.',
+    noSv:'Không có Street View gần', useSat:'→ dùng vệ tinh', gFail:'Google Maps từ chối key (kiểm tra key, API đã bật, giới hạn website). Tạm dùng vệ tinh.',
+    wiki:'Chưa có Gemini key → đang ghép kịch bản từ Wikipedia…', geo:'Đang chốt toạ độ chính xác', notFound:'Không tìm thấy địa điểm này', few:'Wikipedia có quá ít bài viết quanh địa điểm này'},
+  en:{pano:'🚶 Walk-in 360°',sat:'🛰️ Satellite 3D',sv:'🔑 Street View walk',g3d:'🔑 Google 3D',
+    npano:'Free, no key: the agent flies there, then drops into a 360° street-level view (Google Street View imagery). Nearby stops are reached on foot along real streets; at each stop the agent strolls around the landmark while the hosts talk. Drag to look around (the walk pauses for you). If a spot has no 360° imagery, press 🛰️ for satellite.',
+    toMap:'🛰️ Satellite view', toPano:'🚶 Enter 360°', noMap:'The map could not load here (this preview may block it). The podcast still plays. Download the file and open it in Edge or Chrome for the map and 360°.',
+    nsat:'Free, no key: Esri satellite imagery + 3D terrain. Right-drag (or Ctrl + drag) to rotate and tilt.',
+    nsv:'The agent flies there, then drops into Street View and walks around each stop. Needs a Google Maps API key (Advanced settings).',
+    ng3d:'Photorealistic 3D cities like Google Earth. Needs a Google Maps API key with Map Tiles API enabled. Not every place has 3D.',
+    gem:'Gemini API key',gemN:'Free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Without a key the app builds the script from Wikipedia (less theme customization).',
+    model:'Gemini model',gm:'Google Maps API key',gmN:'For Street View and Google 3D. In Google Cloud enable Maps JavaScript API + Map Tiles API and create a key. Monthly free usage, then paid.',
+    refine:'Refine coordinates with OpenStreetMap',saved:'Saved',needKey:'This mode needs a Google Maps API key → open Advanced settings. Using satellite for now.',
+    noSv:'No Street View near', useSat:'→ using satellite', gFail:'Google Maps rejected the key (check key, enabled APIs, referrer limits). Using satellite.',
+    wiki:'No Gemini key → building the script from Wikipedia…', geo:'Pinning exact coordinates', notFound:'Could not find that place', few:'Wikipedia has too few articles around this place'}
+};
+let lang = 'vi'; const l = k => (L[lang]||L.vi)[k];
+
+/* ---------- geo helpers ---------- */
+function hav(a, b){ const dLa=(b.lat-a.lat)*R, dLo=(b.lng-a.lng)*R; const x=Math.sin(dLa/2)**2+Math.cos(a.lat*R)*Math.cos(b.lat*R)*Math.sin(dLo/2)**2; return 12742*Math.asin(Math.sqrt(x)); }
+function bearing(a, b){ const y=Math.sin((b.lng-a.lng)*R)*Math.cos(b.lat*R); const x=Math.cos(a.lat*R)*Math.sin(b.lat*R)-Math.sin(a.lat*R)*Math.cos(b.lat*R)*Math.cos((b.lng-a.lng)*R); return (Math.atan2(y,x)/R+360)%360; }
+function slerp(a, b, f){
+  const p1=a.lat*R, l1=a.lng*R, p2=b.lat*R, l2=b.lng*R;
+  const d = 2*Math.asin(Math.sqrt(Math.sin((p2-p1)/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin((l2-l1)/2)**2));
+  if(d < 1e-9) return {lat:b.lat, lng:b.lng};
+  const A=Math.sin((1-f)*d)/Math.sin(d), B=Math.sin(f*d)/Math.sin(d);
+  const x=A*Math.cos(p1)*Math.cos(l1)+B*Math.cos(p2)*Math.cos(l2), y=A*Math.cos(p1)*Math.sin(l1)+B*Math.cos(p2)*Math.sin(l2), z=A*Math.sin(p1)+B*Math.sin(p2);
+  return {lat:Math.atan2(z,Math.sqrt(x*x+y*y))/R, lng:Math.atan2(y,x)/R};
+}
+const ease = x => x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2;
+async function getJSON(url, opt){ const r = await fetch(url, opt); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+let lastGeo = 0;
+async function geocode(q, lg, near){
+  const wait = 350-(Date.now()-lastGeo); if(wait>0) await ctx.sleep(wait); lastGeo = Date.now();
+  // Photon (komoot, OpenStreetMap data) first — works from browsers where Nominatim is blocked
+  try{
+    let u = 'https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(q);
+    if(near) u += '&lat='+near.lat.toFixed(4)+'&lon='+near.lng.toFixed(4);
+    const j = await getJSON(u); const f = (j.features||[])[0];
+    if(f) return { lat:f.geometry.coordinates[1], lng:f.geometry.coordinates[0], type:f.properties.type, name:f.properties.name||q };
+  }catch(e){ console.warn('photon', e); }
+  try{
+    await ctx.sleep(1000);
+    const j = await getJSON('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language='+lg+'&q='+encodeURIComponent(q));
+    if(j[0]) return { lat:+j[0].lat, lng:+j[0].lon, type:j[0].addresstype||j[0].type, name:j[0].name||q };
+  }catch(e){ console.warn('nominatim', e); }
+  return null;
+}
+
+/* ---------- map setup ---------- */
+function style(){
+  return { version:8, projection:{type:'globe'},
+    sources:{
+      sat:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19,attribution:'Imagery © Esri, Maxar, Earthstar Geographics'},
+      lbl:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],tileSize:256,maxzoom:19},
+      dem:{type:'raster-dem',tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],encoding:'terrarium',tileSize:256,maxzoom:12,attribution:'Terrain: Mapzen/AWS'}
+    },
+    layers:[{id:'sat',type:'raster',source:'sat'},{id:'lbl',type:'raster',source:'lbl',paint:{'raster-opacity':.9}}],
+    sky:{'sky-color':'#0b1640','horizon-color':'#2b4a8a','fog-color':'#9fc3ff','sky-horizon-blend':.6,'horizon-fog-blend':.6,'fog-ground-blend':.3,'atmosphere-blend':['interpolate',['linear'],['zoom'],0,1,6,.6,10,0]}
+  };
+}
+function initMap(){
+  M.map = new maplibregl.Map({ container:'ml', style:style(), center:[106,16], zoom:1.5, maxPitch:78, attributionControl:{compact:true}, fadeDuration:150 });
+  M.map.on('load', () => {
+    try{ M.map.setTerrain({source:'dem', exaggeration:1.15}); }catch(e){ console.warn('terrain', e); }
+    M.map.addSource('route', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+    M.map.addLayer({id:'route-glow',type:'line',source:'route',paint:{'line-color':'#a78bfa','line-width':8,'line-opacity':.25,'line-blur':4}});
+    M.map.addLayer({id:'route',type:'line',source:'route',paint:{'line-color':'#5eead4','line-width':2.5,'line-dasharray':[2,1.5]}});
+  });
+  ['dragstart','wheel','touchstart','pitchstart','rotatestart'].forEach(ev => M.map.on(ev, e => { if(e.originalEvent) M.hold = Date.now()+8000; }));
+  M.map.on('error', e => { if(!M._errShown && e && e.error && /tile|Failed to fetch/i.test(String(e.error.message||''))){ M._errShown = true; console.warn('tile error', e.error); } });
+  const el = document.createElement('div'); el.className = 'agent'; el.innerHTML = '<span>🧭</span>';
+  M.agent = new maplibregl.Marker({element:el}).setLngLat([106,16]).addTo(M.map);
+  // idle spin on the welcome screen
+  const spin = () => { if(!M.tour && Date.now()>M.hold && M.map.isStyleLoaded()){ const c = M.map.getCenter(); M.map.setCenter([c.lng+0.035, c.lat]); M.agent.setLngLat([c.lng+0.035, c.lat]); } M.idle = requestAnimationFrame(spin); };
+  M.idle = requestAnimationFrame(spin);
+}
+function showLayer(which){
+  if(which!=='pano' && PV.shown) panoHide();
+  M.active = which;
+  $('#gsv').classList.toggle('hidden', which!=='sv');
+  $('#g3d').classList.toggle('hidden', which!=='g3d');
+}
+
+/* ---------- Google loader ---------- */
+function loadGoogle(){
+  const key = (st('gmKey','')||'').trim();
+  if(!key) return Promise.reject(new Error('nokey'));
+  if(M.g) return M.g;
+  M.g = new Promise((res, rej) => {
+    window.__wcG = () => res();
+    window.gm_authFailure = () => { ctx.toast(l('gFail'),'err',8000); M.gBad = true; showLayer('sat'); };
+    const s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&v=beta&loading=async&callback=__wcG';
+    s.async = true; s.onerror = () => { M.g = null; rej(new Error('Google Maps script failed to load')); };
+    document.head.appendChild(s);
+  });
+  return M.g;
+}
+
+/* ---------- satellite flight ---------- */
+let agentRaf = 0;
+function moveAgent(from, to, dur){
+  cancelAnimationFrame(agentRaf);
+  const t0 = performance.now();
+  const step = now => { const f = Math.min(1, (now-t0)/dur); const p = slerp(from, to, ease(f)); M.agent.setLngLat([p.lng, p.lat]); if(f<1) agentRaf = requestAnimationFrame(step); };
+  agentRaf = requestAnimationFrame(step);
+}
+function satFly(stop, prev, zoom, maxDur){
+  return new Promise(res => {
+    const c = M.map.getCenter(); const from = prev || {lat:c.lat, lng:c.lng};
+    const d = hav({lat:c.lat,lng:c.lng}, stop);
+    const dur = Math.min(maxDur||9500, Math.max(3200, Math.min(9500, 2600 + Math.log10(d+1)*1800)));
+    moveAgent(from, stop, dur*.92);
+    let done = false; const fin = () => { if(done) return; done = true; M.map.off('moveend', fin); clearTimeout(to); res(); };
+    const to = setTimeout(fin, dur+2500);
+    M.map.once('moveend', fin);
+    M.map.flyTo({ center:[stop.lng, stop.lat], zoom:zoom||16.2, pitch:62, bearing:stop.heading||0, duration:dur, curve:1.55, essential:true });
+  });
+}
+
+/* ---------- Street View ---------- */
+async function svFly(stop, prev){
+  try{ await loadGoogle(); }catch(e){ ctx.toast(e.message==='nokey' ? l('needKey') : e.message, 'warn', 6000); return false; }
+  if(M.gBad) return false;
+  const lib = await google.maps.importLibrary('streetView');
+  if(!M.sv){
+    M.sv = new lib.StreetViewPanorama($('#gsv'), { addressControl:false, fullscreenControl:false, motionTracking:false, motionTrackingControl:false, showRoadLabels:false, zoomControl:false, panControl:false, enableCloseButton:false, linksControl:true, visible:false });
+    M.svSvc = new lib.StreetViewService();
+  }
+  const req = { location:{lat:stop.lat, lng:stop.lng}, radius:300, preference:lib.StreetViewPreference ? lib.StreetViewPreference.NEAREST : 'nearest' };
+  if(lib.StreetViewSource && lib.StreetViewSource.OUTDOOR) req.sources = [lib.StreetViewSource.OUTDOOR];
+  let res = null;
+  try{ res = await M.svSvc.getPanorama(req); }catch(e){ try{ res = await M.svSvc.getPanorama({location:req.location, radius:1500}); }catch(e2){ res = null; } }
+  if(!res || !res.data || !res.data.location){ ctx.toast(l('noSv')+' '+stop.name+' '+l('useSat'), 'warn'); return false; }
+  showLayer('sat');
+  await satFly(stop, prev, 17.2);
+  const ll = res.data.location.latLng; const h = bearing({lat:ll.lat(), lng:ll.lng()}, stop);
+  M.sv.setPano(res.data.location.pano); M.sv.setPov({heading:h, pitch:4}); M.sv.setZoom(0); M.sv.setVisible(true);
+  showLayer('sv'); M.walkAt = Date.now()+15000;
+  return true;
+}
+
+/* ---------- Google Photorealistic 3D ---------- */
+async function g3dFly(stop){
+  try{ await loadGoogle(); }catch(e){ ctx.toast(e.message==='nokey' ? l('needKey') : e.message, 'warn', 6000); return false; }
+  if(M.gBad) return false;
+  let lib; try{ lib = await google.maps.importLibrary('maps3d'); }catch(e){ ctx.toast('maps3d: '+e.message,'err'); return false; }
+  if(!M.m3d){
+    M.m3d = new lib.Map3DElement({ center:{lat:stop.lat, lng:stop.lng, altitude:0}, range:4e6, tilt:0, heading:0, mode:'HYBRID' });
+    try{ M.m3d.defaultUIDisabled = true; }catch(e){}
+    $('#g3d').appendChild(M.m3d);
+    await ctx.sleep(600);
+  }
+  showLayer('g3d');
+  const cam = M.m3d.center; const from = cam ? {lat:cam.lat, lng:cam.lng} : stop;
+  const dur = Math.max(3500, Math.min(10000, 3000 + Math.log10(hav(from, stop)+1)*1800));
+  try{ M.m3d.stopCameraAnimation && M.m3d.stopCameraAnimation(); }catch(e){}
+  await new Promise(res => {
+    let done = false; const fin = () => { if(done) return; done = true; M.m3d.removeEventListener('gmp-animationend', fin); res(); };
+    M.m3d.addEventListener('gmp-animationend', fin); setTimeout(fin, dur+3000);
+    M.m3d.flyCameraTo({ endCamera:{ center:{lat:stop.lat, lng:stop.lng, altitude:40}, tilt:66, range:700, heading:stop.heading||0 }, durationMillis:dur });
+  });
+  // keep the satellite map in sync so switching modes is seamless
+  M.map.jumpTo({center:[stop.lng, stop.lat], zoom:16, pitch:60, bearing:stop.heading||0}); M.agent.setLngLat([stop.lng, stop.lat]);
+  return true;
+}
+
+/* ---------- orbit / walk ---------- */
+function stopOrbit(){
+  if(!M.ok) return;
+  PV.walkTok++; stopStroll();
+  cancelAnimationFrame(M.raf); M.raf = 0;
+  if(M.m3d){ try{ M.m3d.stopCameraAnimation && M.m3d.stopCameraAnimation(); }catch(e){} }
+}
+function orbit(stop){
+  if(!M.ok) return;
+  stopOrbit();
+  if(M.active==='pano'){ startStroll(stop); return; }
+  if(M.active==='g3d' && M.m3d){
+    const camera = { center:{lat:stop.lat, lng:stop.lng, altitude:40}, tilt:66, range:700, heading:stop.heading||0 };
+    try{ M.m3d.flyCameraAround({ camera, durationMillis:90000, repeatCount:1 }); }
+    catch(e){ try{ M.m3d.flyCameraAround({ camera, durationMillis:90000, rounds:1 }); }catch(e2){} }
+    return;
+  }
+  const step = () => {
+    if(Date.now() > M.hold){
+      if(M.active==='sv' && M.sv){
+        const pov = M.sv.getPov(); M.sv.setPov({heading:(pov.heading+0.045)%360, pitch:pov.pitch});
+        if(Date.now() > M.walkAt){
+          M.walkAt = Date.now()+14000;
+          const links = (M.sv.getLinks()||[]).filter(x=>x && x.pano);
+          if(links.length){
+            const diff = a => Math.abs(((a - pov.heading + 540) % 360) - 180);
+            const best = links.sort((a,b)=>diff(a.heading)-diff(b.heading))[0];
+            if(diff(best.heading) < 70) M.sv.setPano(best.pano);
+          }
+        }
+      }else if(M.map){ M.map.setBearing(M.map.getBearing()+0.055); }
+    }
+    M.raf = requestAnimationFrame(step);
+  };
+  M.raf = requestAnimationFrame(step);
+}
+
+/* ---------- walk-in 360° (embedded Street View, no key) ---------- */
+const PV = { front:0, h:0, stop:null, shown:false, pre:null, preTimer:0, pos:null, walkTok:0, strollTok:0, hold:0 };
+function panoUrl(lat, lng, h){
+  h = Math.round(((h%360)+360)%360);
+  const key = (st('gmKey','')||'').trim();
+  if(key && !M.gBad) return 'https://www.google.com/maps/embed/v1/streetview?key='+encodeURIComponent(key)+'&location='+lat+','+lng+'&heading='+h+'&pitch=0&fov=90';
+  return 'https://maps.google.com/maps?layer=c&cbll='+lat+','+lng+'&cbp=11,'+h+',0,0,0&output=svembed';
+}
+const frames = () => document.querySelectorAll('#pano iframe');
+// load a pano into the hidden iframe (or reuse a finished preload), then crossfade
+function loadPano(lat, lng, h){
+  const url = panoUrl(lat, lng, h);
+  return new Promise(res => {
+    const fr = frames(); const back = fr[1-PV.front], front = fr[PV.front];
+    const swap = () => { back.classList.add('on'); front.classList.remove('on'); PV.front = 1-PV.front; PV.pre = null; res(); };
+    if(PV.pre && PV.pre.url===url){
+      if(PV.pre.ready) return swap();
+      const wait = setTimeout(swap, 4000); PV.pre.onready = () => { clearTimeout(wait); setTimeout(swap, 250); }; return;
+    }
+    let done = false; const fin = () => { if(done) return; done = true; clearTimeout(to); setTimeout(swap, 180); };
+    const to = setTimeout(fin, 4500);
+    back.onload = fin; back.src = url;
+  });
+}
+// quietly load the next stop's pano into the hidden iframe while the hosts are still talking
+function preloadPano(stop, delay, force){
+  clearTimeout(PV.preTimer);
+  if(!stop) return;
+  PV.preTimer = setTimeout(() => {
+    if(!PV.shown && !force) return;
+    const back = frames()[1-PV.front]; const url = panoUrl(stop.lat, stop.lng, stop.heading||0);
+    const pre = PV.pre = { url, ready:false, onready:null };
+    back.onload = () => { pre.ready = true; pre.onready && pre.onready(); };
+    back.src = url;
+  }, delay==null ? 3500 : delay);
+}
+async function panoShow(stop){
+  PV.stop = stop; PV.h = stop.heading||0;
+  $('#pano').classList.remove('hidden'); M.active = 'pano'; PV.shown = true; viewBtn();
+  await loadPano(stop.lat, stop.lng, PV.h);
+}
+function panoHide(){
+  if(!PV.shown) return; PV.shown = false; clearTimeout(PV.preTimer); PV.pre = null;
+  frames().forEach(f => f.classList.remove('on'));
+  setTimeout(() => { if(!PV.shown) $('#pano').classList.add('hidden'); }, 1300);
+  if(M.active==='pano') M.active = 'sat'; viewBtn();
+}
+/* ---------- auto-walk: follow a real footpath, step by step in 360° ---------- */
+function dest(p, meters, brgDeg){
+  const d = meters/6371000, b = brgDeg*R, la = p.lat*R, lo = p.lng*R;
+  const la2 = Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(b));
+  const lo2 = lo + Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(la), Math.cos(d)-Math.sin(la)*Math.sin(la2));
+  return {lat:la2/R, lng:lo2/R};
+}
+const routeCache = {};
+async function footRoute(a, b){
+  const k = [a.lat,a.lng,b.lat,b.lng].map(x=>(+x).toFixed(5)).join(',');
+  if(routeCache[k]) return routeCache[k];
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 6000);
+  try{
+    const j = await getJSON('https://routing.openstreetmap.de/routed-foot/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=full&geometries=geojson', {signal:ctl.signal});
+    const r = j.routes && j.routes[0]; if(!r || !r.geometry) return null;
+    return routeCache[k] = r.geometry.coordinates.map(([lng,lat]) => ({lat,lng}));
+  }catch(e){ console.warn('route', e); return null; } finally{ clearTimeout(to); }
+}
+function samplePath(line){
+  let total = 0; for(let i=1;i<line.length;i++) total += hav(line[i-1], line[i])*1000;
+  const step = Math.max(22, total/14);            // at most ~14 steps per walk
+  const out = [line[0]]; let acc = 0;
+  for(let i=1;i<line.length;i++){
+    let a = line[i-1], rem = hav(a, line[i])*1000;
+    while(acc+rem >= step){ const f = (step-acc)/rem; a = {lat:a.lat+(line[i].lat-a.lat)*f, lng:a.lng+(line[i].lng-a.lng)*f}; out.push(a); rem = hav(a, line[i])*1000; acc = 0; }
+    acc += rem;
+  }
+  const last = line[line.length-1]; if(hav(out[out.length-1], last)*1000 > 10) out.push(last);
+  return out;
+}
+async function walkTo(stop){
+  const tok = ++PV.walkTok; stopStroll();
+  const from = PV.pos || PV.stop || stop;
+  const line = await footRoute(from, stop);
+  if(tok !== PV.walkTok) return;
+  PV.stop = stop;
+  if(!line || line.length < 2){ PV.pos = {lat:stop.lat, lng:stop.lng}; await loadPano(stop.lat, stop.lng, stop.heading||0); return; }
+  const pts = samplePath(line);
+  for(let i=1;i<pts.length;i++){
+    if(tok !== PV.walkTok || !PV.shown) return;
+    const p = pts[i]; const last = i === pts.length-1;
+    const h = !last ? bearing(p, pts[i+1]) : (hav(p, stop)*1000 > 12 ? bearing(p, stop) : bearing(pts[i-1], p));
+    await loadPano(p.lat, p.lng, h); PV.pos = p;
+    M.agent.setLngLat([p.lng, p.lat]); M.map.jumpTo({center:[p.lng, p.lat], bearing:h});
+    await ctx.sleep(1100);
+  }
+}
+function stopStroll(){ PV.strollTok++; }
+function startStroll(stop){
+  stopStroll(); const tok = PV.strollTok; const center = {lat:stop.lat, lng:stop.lng};
+  let ang = PV.pos && hav(PV.pos, center) > 0.005 ? bearing(center, PV.pos) : ((stop.heading||0)+180)%360;
+  (async () => {
+    while(PV.strollTok === tok && PV.shown){
+      await ctx.sleep(5000);
+      if(PV.strollTok !== tok || !PV.shown) return;
+      if(Date.now() < PV.hold) continue;          // the user is looking around: don't move
+      ang += 38; const p = dest(center, 38, ang);    // circle the landmark, always facing it
+      await loadPano(p.lat, p.lng, bearing(p, center)); PV.pos = p;
+    }
+  })();
+}
+
+function viewBtn(){
+  const b = $('#viewBtn'); if(!b) return;
+  b.classList.toggle('hidden', !(M.tour && M.mode==='pano'));
+  b.textContent = PV.shown ? l('toMap') : l('toPano');
+}
+
+/* ---------- route ---------- */
+function setRoute(stops){
+  if(!M.ok){ M.stops = stops; M.tour = true; if(M.ready) M.ready.then(() => M.ok && setRoute(stops)); return; }
+  M.stops = stops; M.tour = true; setTimeout(viewBtn, 0);
+  M.pins.forEach(p=>p.remove()); M.pins = [];
+  stops.forEach((s,i) => { const el = document.createElement('div'); el.className = 'pin'; el.textContent = i+1; el.title = s.name;
+    M.pins.push(new maplibregl.Marker({element:el}).setLngLat([s.lng, s.lat]).addTo(M.map)); });
+  const coords = []; for(let i=0;i<stops.length-1;i++){ for(let k=0;k<=24;k++){ const p = slerp(stops[i], stops[i+1], k/24); coords.push([p.lng, p.lat]); } }
+  const data = {type:'FeatureCollection', features: coords.length ? [{type:'Feature',geometry:{type:'LineString',coordinates:coords}}] : []};
+  const put = () => { const src = M.map.getSource('route'); if(src) src.setData(data); };
+  if(M.map.isStyleLoaded()) put(); else M.map.once('load', put);
+}
+function highlight(i){ if(!M.ok) return; M.pins.forEach((p,k) => p.getElement().classList.toggle('on', k===i)); }
+
+async function flyTo(stop, idx, prev){
+  await M.ready;
+  if(!M.ok){ await ctx.sleep(1200); return; }
+  stopOrbit(); M.hold = 0;
+  if(M.mode==='pano'){
+    if(PV.shown && hav(PV.pos || prev || stop, stop) < 2.5){ await walkTo(stop); return; } // nearby: walk there for real
+    panoHide(); showLayer('sat');
+    preloadPano(stop, 0, true); // start loading the 360° view the moment we take off
+    await satFly(stop, prev, 17.4, prev ? 5500 : 3500); await panoShow(stop); PV.pos = {lat:stop.lat, lng:stop.lng}; return;
+  }
+  panoHide();
+  if(M.mode==='sv'){ if(await svFly(stop, prev)) return; }
+  else if(M.mode==='g3d'){ if(await g3dFly(stop)) return; }
+  showLayer('sat');
+  await satFly(stop, prev);
+}
+
+/* ---------- AI: Gemini or Wikipedia ---------- */
+async function gemini(prompt, status){
+  const key = (st('gemKey','')||'').trim();
+  const model = st('gemModel','gemini-flash-latest');
+  const t0 = Date.now(); const base = status ? ctx.t('writing') : '';
+  const tick = setInterval(() => status && status(base+' '+Math.round((Date.now()-t0)/1000)+'s'), 1000);
+  try{
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent', {
+      method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':key},
+      body: JSON.stringify({ contents:[{role:'user', parts:[{text:prompt}]}], generationConfig:{ responseMimeType:'application/json' } })
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error('Gemini: '+((j.error&&j.error.message)||('HTTP '+r.status)));
+    const parts = (((j.candidates||[])[0]||{}).content||{}).parts||[];
+    const text = parts.filter(p=>!p.thought).map(p=>p.text||'').join('');
+    if(!text) throw new Error('Gemini: '+(((j.promptFeedback||{}).blockReason)||'empty response'));
+    return text;
+  }finally{ clearInterval(tick); }
+}
+function clean(s){ return String(s||'').replace(/\s*\([^()]*\)/g,'').replace(/\s*\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim(); }
+function sentences(s){ return clean(s).split(/(?<=[.!?])\s+/).filter(x=>x.length>12); }
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+async function wikiScript(p, status){
+  status(l('wiki'));
+  const lg = p.lang; const W = 'https://'+lg+'.wikipedia.org/w/api.php?format=json&origin=*&';
+  const g = await geocode(p.dest, lg); if(!g) throw new Error(l('notFound')+': '+p.dest);
+  // city/country summary
+  let intro = null;
+  try{ const sr = await getJSON(W+'action=query&list=search&srlimit=1&srsearch='+encodeURIComponent(p.dest));
+    const title = sr.query.search[0] && sr.query.search[0].title;
+    if(title){ const ex = await getJSON(W+'action=query&prop=extracts&exintro=1&explaintext=1&exsentences=4&titles='+encodeURIComponent(title)); intro = Object.values(ex.query.pages)[0].extract; }
+  }catch(e){}
+  const gs = await getJSON(W+'action=query&list=geosearch&gsradius=10000&gslimit=50&gscoord='+g.lat+'|'+g.lng);
+  let items = (gs.query && gs.query.geosearch) || [];
+  if(items.length){
+    const info = await getJSON(W+'action=query&prop=info&pageids='+items.map(x=>x.pageid).join('|'));
+    const len = id => ((info.query.pages[id]||{}).length)||0;
+    items.sort((a,b)=>len(b.pageid)-len(a.pageid));
+    const chosen = [];
+    for(const it of items){ if(chosen.every(c => hav({lat:c.lat,lng:c.lon},{lat:it.lat,lng:it.lon}) > 0.25)) chosen.push(it); if(chosen.length >= p.stops) break; }
+    items = chosen;
+    const ex = await getJSON(W+'action=query&prop=extracts&exintro=1&explaintext=1&exsentences=4&exlimit=20&pageids='+items.map(x=>x.pageid).join('|'));
+    items.forEach(it => it.extract = ((ex.query.pages[it.pageid]||{}).extract)||'');
+    items = items.filter(it => sentences(it.extract).length);
+  }
+  if(!items.length) throw new Error(l('few'));
+  const A = 'A', B = p.fmt==='duo' ? 'B' : 'A', vi = lg==='vi';
+  const TR = vi ? ['Tiếp theo, mình bay tới {n}.','Giờ chúng ta lướt qua thành phố, hướng về {n}.','Điểm dừng kế tiếp của tụi mình là {n}.','Cùng hạ độ cao, phía dưới chính là {n}.']
+                : ['Next up, we fly over to {n}.','Now we glide across town toward {n}.','Our next stop is {n}.','Let’s drop altitude, right below us is {n}.'];
+  const RE = vi ? ['Nghe thú vị thật đấy!','Mình không ngờ luôn đó.','Đúng là mỗi góc ở đây đều có câu chuyện riêng.','Nếu có dịp, nhất định phải ghé tận nơi.']
+                : ['That is fascinating!','I had no idea.','Every corner here has its own story.','Definitely worth visiting in person.'];
+  const stops = items.map((it, i) => {
+    const sn = sentences(it.extract); const lines = [];
+    if(i===0){
+      if(vi){ lines.push({s:A,t:`Xin chào các bạn, đây là WanderCast, podcast đưa bạn đi khắp thế giới. Mình là ${p.nameA}.`});
+        if(p.fmt==='duo') lines.push({s:B,t:`Còn mình là ${p.nameB}. Hôm nay tụi mình cùng bay tới ${p.dest}.`}); else lines.push({s:A,t:`Hôm nay mình sẽ đưa bạn tới ${p.dest}.`}); }
+      else { lines.push({s:A,t:`Welcome to WanderCast, the podcast that flies you around the world. I'm ${p.nameA}.`});
+        if(p.fmt==='duo') lines.push({s:B,t:`And I'm ${p.nameB}. Today we're heading to ${p.dest}.`}); else lines.push({s:A,t:`Today I'm taking you to ${p.dest}.`}); }
+      sentences(intro).slice(0,2).forEach((x,k) => lines.push({s:k%2?A:B, t:x}));
+    }
+    lines.push({s:A, t:pick(TR).replace('{n}', it.title)});
+    sn.slice(0,2).forEach(x => lines.push({s:B, t:x}));
+    if(sn[2]) lines.push({s:A, t:sn[2]});
+    if(p.len!=='s' && sn[3]) lines.push({s:B, t:sn[3]});
+    lines.push({s:p.fmt==='duo'?(lines[lines.length-1].s==='A'?'B':'A'):'A', t:pick(RE)});
+    if(i===items.length-1) lines.push({s:A, t: vi ? `Và đó là hành trình của tụi mình ở ${p.dest}. Cảm ơn các bạn đã nghe WanderCast, hẹn gặp lại ở chuyến bay sau!` : `And that wraps up our trip to ${p.dest}. Thanks for listening to WanderCast, see you on the next flight!`});
+    return { name:it.title, geo:it.title, lat:it.lat, lng:it.lon, heading:(i*73+40)%360, fact:(sn[0]||'').slice(0,140), lines };
+  });
+  return { title: vi ? `${p.dest}: chuyến bay qua Wikipedia` : `${p.dest}: a Wikipedia flight`, summary: vi ? 'Kịch bản tự ghép từ Wikipedia. Thêm Gemini key để AI viết theo chủ đề và theme bạn chọn.' : 'Auto-built from Wikipedia. Add a Gemini key for a fully themed AI script.', stops, _exact:true };
+}
+async function refine(script, p, status){
+  if(script._exact || !st('refine', true)) return script;
+  let base = null;
+  try{ base = await geocode(p.dest, p.lang); }catch(e){}
+  for(let i=0;i<script.stops.length;i++){
+    const s = script.stops[i]; status(l('geo')+' '+(i+1)+'/'+script.stops.length+'…');
+    try{
+      const g = await geocode(s.geo || s.name, 'en', base || s);
+      const ref = base || s;
+      if(g && (hav(g, s) < 40 || hav(g, ref) < 150)){ s.lat = g.lat; s.lng = g.lng; }
+    }catch(e){ console.warn('geocode', s.geo, e); }
+  }
+  return script;
+}
+async function generate(p, prompt, status){
+  if(!(st('gemKey','')||'').trim()) return wikiScript(p, status);
+  return gemini(prompt, status);
+}
+
+/* ---------- settings UI ---------- */
+function applyLang(lg){
+  lang = lg;
+  document.querySelectorAll('[data-l]').forEach(el => { el.innerHTML = l(el.dataset.l); });
+  noteMode();
+}
+function noteMode(){ const n = $('#mapNote'); if(n) n.innerHTML = l('n'+M.mode); }
+function wireSettings(){
+  const seg = $('#mapSeg');
+  M.mode = st('mapMode2','pano');
+  seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v===M.mode));
+  seg.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return;
+    M.mode = b.dataset.v; ss('mapMode2', M.mode); seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); noteMode();
+    if((M.mode==='sv'||M.mode==='g3d') && !(st('gmKey','')||'').trim()){ ctx.toast(l('needKey'),'warn',6000); $('details.adv').open = true; }
+    if(M.mode!=='g3d' && M.mode!=='sv') showLayer('sat');
+    viewBtn();
+    ctx.onModeChange && ctx.onModeChange();
+  });
+  const bind = (id, key, def) => { const el = $(id); if(!el) return; if(el.type==='checkbox'){ el.checked = st(key, def); el.addEventListener('change', () => ss(key, el.checked)); }
+    else { el.value = st(key, def); el.addEventListener('change', () => { ss(key, el.value.trim()); if(key==='gmKey'){ M.g = null; M.gBad = false; } ctx.toast(l('saved')); }); } };
+  bind('#gemKey','gemKey',''); bind('#gemModel','gemModel','gemini-flash-latest'); bind('#gmKey','gmKey',''); bind('#refine','refine',true);
+}
+
+window.WCAdapter = {
+  name:'real',
+  init(stage, c){
+    ctx = c;
+    stage.innerHTML = '<div id="ml" class="layer"></div><div id="gsv" class="layer hidden"></div><div id="g3d" class="layer hidden"></div>'
+      + '<div id="pano" class="layer hidden"><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe></div>'
+      + '<button id="viewBtn" class="btn hidden"></button>';
+    wireSettings(); applyLang(c.lang());
+    // wait for the map library: some viewers load it late (or block it); never crash the podcast
+    M.ready = new Promise(res => {
+      const t0 = Date.now();
+      const tick = () => {
+        if(window.maplibregl){ try{ initMap(); M.ok = true; }catch(e){ console.error(e); } return res(); }
+        if(Date.now()-t0 > 15000){ c.toast(l('noMap'), 'err', 12000); return res(); }
+        setTimeout(tick, 120);
+      };
+      tick();
+    });
+    // the user clicked/dragged inside the 360° view (focus moved into the iframe): stand still for 20s
+    window.addEventListener('blur', () => { if(PV.shown){ PV.hold = Date.now()+20000; setTimeout(() => { try{ window.focus(); }catch(e){} }, 20000); } });
+    $('#viewBtn').addEventListener('click', async () => {
+      const s = PV.stop; if(!s) return;
+      if(PV.shown){ panoHide(); M.map.jumpTo({center:[s.lng,s.lat], zoom:17, pitch:60, bearing:s.heading||0}); orbit(s); }
+      else { stopOrbit(); await panoShow(s); orbit(s); }
+    });
+  },
+  onLang(lg){ applyLang(lg); },
+  map:{ setRoute, flyTo, orbit, stopOrbit, highlight },
+  ai:{ generate, refine }
+};
+})();
+</script>
+<script>/* WanderCast core — UI, prompt, speech, ambient audio, player. Map + AI come from window.WCAdapter */
+(function(){
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('wc_'+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('wc_'+k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------------- i18n (UI) ---------------- */
+const T = {
+  vi:{tagline:'AI lữ hành · podcast vòng quanh thế giới',customize:'Tuỳ chỉnh',wTitle:'Đi bất cứ đâu,<br><span>nghe như một podcast</span>',
+    wSub:'Chọn điểm đến, chủ đề và phong cách. AI agent sẽ bay tới từng điểm dừng trên bản đồ và các host kể chuyện cho bạn nghe.',
+    plan:'Lên hành trình',planSub:'Tuỳ biến nội dung, giọng đọc và bản đồ',dest:'Điểm đến',topic:'Chủ đề (tối đa 3)',theme:'Phong cách / theme',
+    topicPh:"Hoặc tự gõ chủ đề: ví dụ 'cà phê và giới trẻ'",format:'Định dạng',duo:'🎙️ 2 host',solo:'🎧 1 hướng dẫn viên',stops:'Số điểm dừng',len:'Độ dài mỗi điểm',
+    lenS:'Ngắn',lenM:'Vừa',lenL:'Dài',voices:'Giọng đọc',speed:'Tốc độ',test:'▶ Nghe thử',adv:'⚙️ Cài đặt nâng cao',ambient:'Nhạc nền ambient theo theme',
+    start:'✈️ Bắt đầu hành trình',mapMode:'Chế độ bản đồ',needDest:'Nhập điểm đến trước đã nhé',writing:'AI đang viết kịch bản podcast…',
+    ready:'Sẵn sàng! Đang cất cánh…',demo:'🎧 Nghe demo (không cần AI)',noVi:'Máy chưa có giọng tiếng Việt. Mở bằng Microsoft Edge để có giọng HoaiMy / NamMinh (Natural) miễn phí, hoặc cài gói Vietnamese trong Windows Settings › Time & language › Speech.',
+    flying:'Đang bay tới', stop:'Điểm dừng', end:'Hết hành trình. Bấm 📚 để chọn tour khác!', voiceAuto:'Tự chọn', sample:'Xin chào, mình là {n}. Cùng đi khắp thế giới nhé!',
+    libTitle:'📚 Thư viện tour có sẵn', libOpen:'📚 Chọn tour có sẵn (nghe ngay)', orMake:'hoặc tự tạo tour mới bằng AI', fAll:'Tất cả', fVn:'🇻🇳 Việt Nam', fWorld:'🌍 Thế giới',
+    fKids:'🧸 Trẻ em & gia đình', fStudent:'🎓 Học sinh', fRelax:'🌙 Thư giãn', fMine:'✨ Tour của bạn', stopsN:'điểm', min:'phút', emptyMine:'Chưa có tour nào. Tạo tour bằng AI ở khung bên trái, tour sẽ được lưu ở đây.',
+    aKids:'Trẻ em', aStudent:'Học sinh', aRelax:'Thư giãn', aAll:'Mọi người', aTravel:'Du lịch', aMine:'Bạn tạo', saved:'Đã lưu vào "Tour của bạn"', see360:'🚶 Xem 360° tại đây trên Google Maps ↗', del:'Xoá', tapPlay:'Bấm ▶ để nghe tour này'},
+  en:{tagline:'AI travel agent · a podcast around the world',customize:'Customize',wTitle:'Go anywhere,<br><span>listen like a podcast</span>',
+    wSub:'Pick a destination, topics and a vibe. An AI agent flies to each stop on the map while the hosts tell you the story.',
+    plan:'Plan your trip',planSub:'Customize content, voices and map',dest:'Destination',topic:'Topics (up to 3)',theme:'Style / theme',
+    topicPh:"Or type your own topic, e.g. 'street coffee culture'",format:'Format',duo:'🎙️ 2 hosts',solo:'🎧 Solo guide',stops:'Stops',len:'Length per stop',
+    lenS:'Short',lenM:'Medium',lenL:'Long',voices:'Voices',speed:'Speed',test:'▶ Preview',adv:'⚙️ Advanced settings',ambient:'Ambient music matching the theme',
+    start:'✈️ Start the journey',mapMode:'Map mode',needDest:'Type a destination first',writing:'AI is writing your podcast script…',
+    ready:'Ready! Taking off…',demo:'🎧 Play demo (no AI needed)',noVi:'No English voice found on this device.',
+    flying:'Flying to', stop:'Stop', end:'Journey complete. Hit 📚 to pick another tour!', voiceAuto:'Auto', sample:"Hi, I'm {n}. Let's travel the world together!",
+    libTitle:'📚 Ready-made tours', libOpen:'📚 Pick a ready-made tour', orMake:'or create a new tour with AI', fAll:'All', fVn:'🇻🇳 Vietnam', fWorld:'🌍 World',
+    fKids:'🧸 Kids & family', fStudent:'🎓 Students', fRelax:'🌙 Relax', fMine:'✨ Your tours', stopsN:'stops', min:'min', emptyMine:'No tours yet. Create one with AI on the left and it will be saved here.',
+    aKids:'Kids', aStudent:'Students', aRelax:'Relax', aAll:'Everyone', aTravel:'Travel', aMine:'Yours', saved:'Saved to "Your tours"', see360:'🚶 Open the 360° view on Google Maps ↗', del:'Delete', tapPlay:'Press ▶ to play this tour'}
+};
+let LANG = store.get('lang','vi');
+const t = k => (T[LANG]&&T[LANG][k]) || T.vi[k] || k;
+
+/* ---------------- data ---------------- */
+const TOPICS = [
+  ['history','🏛️','Lịch sử','History'],['food','🍜','Ẩm thực','Food'],['arch','🏯','Kiến trúc','Architecture'],
+  ['culture','🎎','Văn hoá & lễ hội','Culture & festivals'],['nature','🌿','Thiên nhiên','Nature'],['mystery','👻','Bí ẩn & truyền thuyết','Mysteries & legends'],
+  ['art','🎨','Nghệ thuật','Art'],['biz','💼','Kinh tế & khởi nghiệp','Business & startups'],['local','🛵','Đời sống địa phương','Local life'],['film','🎬','Phim ảnh & pop culture','Film & pop culture']
+];
+const THEMES = {
+  chill:{e:'☕',vi:'Chill thư giãn',en:'Chill',rate:.93,pitch:1,desc:'relaxed, warm, unhurried, like a late-night chill podcast',chord:[130.81,164.81,196,246.94]},
+  funny:{e:'😂',vi:'Hài hước',en:'Funny',rate:1.04,pitch:1.05,desc:'humorous, playful banter, light jokes and puns, but still informative and respectful',chord:[174.61,220,261.63,349.23]},
+  cinematic:{e:'🎬',vi:'Kể chuyện điện ảnh',en:'Cinematic',rate:.94,pitch:.96,desc:'cinematic documentary storytelling with vivid sensory details and gentle suspense',chord:[110,130.81,164.81,220]},
+  expert:{e:'🎓',vi:'Chuyên gia',en:'Expert',rate:1,pitch:1,desc:'insightful and expert, with context, numbers and surprising facts, like a top educational podcast',chord:[146.83,196,220,293.66]},
+  kids:{e:'🧸',vi:'Cho trẻ em',en:'For kids',rate:.95,pitch:1.18,desc:'for children aged 7-12: simple words, wonder, fun questions to the listener, no scary content',chord:[196,246.94,293.66,392]},
+  adventure:{e:'🧗',vi:'Phiêu lưu',en:'Adventure',rate:1.05,pitch:1.02,desc:'energetic and adventurous, like explorers on an expedition',chord:[164.81,196,246.94,329.63]},
+  romantic:{e:'🌙',vi:'Lãng mạn',en:'Romantic',rate:.9,pitch:1,desc:'romantic, poetic and dreamy',chord:[174.61,220,261.63,329.63]}
+};
+const DESTS = ['Hội An','Hà Nội','Huế','Đà Lạt','Kyoto','Seoul','Paris','Rome','Istanbul','New York','Machu Picchu','Cairo','Santorini','Reykjavík','Bali','Marrakech','Petra','Barcelona','Cappadocia','Havana'];
+const RANDOM_DESTS = DESTS.concat(['Lisbon','Prague','Vienna','Kathmandu','Luang Prabang','Angkor','Bagan','Singapore','Hong Kong','Taipei','Busan','Jeju','Hokkaido','Varanasi','Jaipur','Dubai','Cape Town','Zanzibar','Rio de Janeiro','Buenos Aires','Patagonia','Mexico City','Oaxaca','San Francisco','New Orleans','Banff','Edinburgh','Amsterdam','Venice','Dubrovnik','Athens','Sydney','Queenstown','Galápagos','Easter Island','Ulaanbaatar','Samarkand','Tbilisi','Hạ Long','Sa Pa','Ninh Bình','Phú Quốc','Côn Đảo']);
+
+
+/* ---------------- state ---------------- */
+const S = {
+  dest:'', topics:store.get('topics',['history','food']), topicCustom:'', theme:store.get('theme','chill'),
+  fmt:store.get('fmt','duo'), stops:store.get('stops',5), len:store.get('len','m'),
+  voiceA:store.get('voiceA',''), voiceB:store.get('voiceB',''), nameA:store.get('nameA_'+LANG,null), nameB:store.get('nameB_'+LANG,null),
+  rate:store.get('rate',1), ambient:store.get('ambient',true)
+};
+const defNames = {vi:['Nam','Mai'],en:['Alex','Sam']};
+function names(){ return [S.nameA||defNames[LANG][0], S.nameB||defNames[LANG][1]]; }
+function hostNames(){ return (P && P.script && P.script.hosts) || names(); }
+const curTheme = () => (P && P.script && P.script.theme) || S.theme;
+
+/* ---------------- toast ---------------- */
+function toast(msg, kind, ms){
+  const d = document.createElement('div'); d.className = kind||''; d.textContent = msg; $('#toast').appendChild(d);
+  setTimeout(()=>{ d.style.transition='.4s'; d.style.opacity='0'; setTimeout(()=>d.remove(),400); }, ms||4200);
+}
+
+/* ---------------- speech ---------------- */
+const Speech = {
+  voices:[], ready:false,
+  load(){
+    if(!('speechSynthesis' in window)) return;
+    const pick = () => { this.voices = speechSynthesis.getVoices(); this.ready = this.voices.length>0; fillVoices(); };
+    pick(); speechSynthesis.onvoiceschanged = pick; setTimeout(pick, 800); setTimeout(pick, 2500);
+  },
+  forLang(lang){
+    const score = v => (/natural|online|neural|premium|enhanced/i.test(v.name)?0:1) + (v.localService?0.5:0);
+    return this.voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(lang)).sort((a,b)=>score(a)-score(b) || a.name.localeCompare(b.name));
+  },
+  byName(n){ return this.voices.find(v => v.name===n); },
+  chunks(text){
+    const parts = String(text).replace(/\s+/g,' ').trim().split(/(?<=[.!?…;:])\s+/);
+    const out = []; let cur = '';
+    for(const p of parts){
+      if((cur+' '+p).trim().length <= 190){ cur = (cur+' '+p).trim(); continue; }
+      if(cur) out.push(cur);
+      if(p.length <= 190){ cur = p; continue; }
+      let rest = p; while(rest.length > 190){ let i = rest.lastIndexOf(',', 190); if(i < 60) i = rest.lastIndexOf(' ', 190); if(i < 30) i = 190; out.push(rest.slice(0,i+1).trim()); rest = rest.slice(i+1).trim(); }
+      cur = rest;
+    }
+    if(cur) out.push(cur);
+    return out;
+  },
+  _keep:[],
+  async say(text, {voice, rate=1, pitch=1, lang='vi', isLive=()=>true}={}){
+    if(!('speechSynthesis' in window)){ await sleep(Math.min(9000, text.length*60)); return; }
+    for(const c of this.chunks(text)){
+      if(!isLive()) return;
+      await new Promise(res => {
+        const u = new SpeechSynthesisUtterance(c);
+        if(voice) u.voice = voice;
+        u.lang = voice ? voice.lang : (lang==='vi'?'vi-VN':'en-US');
+        u.rate = rate; u.pitch = pitch;
+        let done = false; const fin = () => { if(done) return; done = true; clearTimeout(to); res(); };
+        const to = setTimeout(fin, 4000 + c.length*130/rate);
+        u.onend = fin; u.onerror = fin;
+        this._keep.push(u); if(this._keep.length>20) this._keep.shift();
+        speechSynthesis.speak(u);
+      });
+    }
+  },
+  stop(){ try{ speechSynthesis.cancel(); }catch(e){} },
+  prime(){ try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){} }
+};
+
+/* ---------------- ambient ---------------- */
+const Amb = {
+  ctx:null, master:null, oscs:[], base:null,
+  start(theme){
+    if(!S.ambient) return;
+    try{
+      if(!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)();
+      if(this.ctx.state==='suspended') this.ctx.resume();
+      this.stop(true);
+      const ctx = this.ctx, now = ctx.currentTime;
+      const master = ctx.createGain(); master.gain.value = 0; master.gain.linearRampToValueAtTime(.05, now+3);
+      const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 850; lp.Q.value = .4;
+      const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = .07; lfoG.gain.value = 260; lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
+      lp.connect(master); master.connect(ctx.destination);
+      this.base = (THEMES[theme]||THEMES.chill).chord;
+      this.oscs = this.base.map((f,i) => {
+        const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain();
+        o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f*1.003; o2.detune.value = 6;
+        g.gain.value = i===0 ? .32 : .2; o1.connect(g); o2.connect(g); g.connect(lp); o1.start(); o2.start();
+        return [o1,o2,f];
+      });
+      this.master = master; this.lfo = lfo;
+    }catch(e){ console.warn('ambient', e); }
+  },
+  step(i){
+    if(!this.ctx || !this.oscs.length) return;
+    const k = [1, 1.1225, .8909, 1.3348][i%4], now = this.ctx.currentTime;
+    this.oscs.forEach(([o1,o2,f]) => { o1.frequency.setTargetAtTime(f*k, now, 1.2); o2.frequency.setTargetAtTime(f*k*1.003, now, 1.2); });
+  },
+  duck(on){ if(this.master && this.ctx) this.master.gain.setTargetAtTime(on ? .028 : .05, this.ctx.currentTime, .4); },
+  stop(instant){
+    if(!this.master || !this.ctx) return;
+    const m = this.master, os = this.oscs, l = this.lfo, now = this.ctx.currentTime;
+    m.gain.cancelScheduledValues(now); m.gain.setTargetAtTime(0, now, instant ? .05 : .8);
+    setTimeout(()=>{ os.forEach(([a,b])=>{ try{a.stop();b.stop();}catch(e){} }); try{l.stop();}catch(e){} m.disconnect(); }, instant ? 300 : 3000);
+    this.master = null; this.oscs = [];
+  }
+};
+
+/* ---------------- prompt + parsing (shared by adapters) ---------------- */
+function prefs(){
+  const [a,b] = names();
+  return { dest:S.dest.trim(), topics:S.topics.slice(), topicCustom:S.topicCustom.trim(), theme:S.theme, fmt:S.fmt,
+    stops:+S.stops, len:S.len, lang:LANG, nameA:a, nameB:b };
+}
+function buildPrompt(p){
+  const topicNames = p.topics.map(id => (TOPICS.find(x=>x[0]===id)||[])[3]).filter(Boolean);
+  if(p.topicCustom) topicNames.push(p.topicCustom);
+  const th = THEMES[p.theme]||THEMES.chill;
+  const lines = {s:'3-4', m:'5-7', l:'8-10'}[p.len]||'5-7';
+  const langTxt = p.lang==='vi'
+    ? 'Vietnamese. Write natural, spoken, friendly Vietnamese with full and correct diacritics, the way Vietnamese podcast hosts actually talk (use "mình", "các bạn"). Keep proper nouns in their common Vietnamese or original form.'
+    : 'English. Natural, spoken, conversational English.';
+  const fmtTxt = p.fmt==='duo'
+    ? `Two hosts in a natural, lively conversation: "${p.nameA}" (speaker "A", the lead storyteller who guides the journey) and "${p.nameB}" (speaker "B", a curious, witty co-host who adds facts, asks questions and reacts). Alternate speakers naturally; never let one host talk more than 2 lines in a row.`
+    : `A single host "${p.nameA}" (speaker "A") speaking directly to the listener. Every line uses speaker "A".`;
+  return `You are the head writer of "WanderCast", an audio travel podcast. While the hosts talk, an AI agent flies the listener across a live 3D map from stop to stop, so the script must feel like we are physically moving and arriving at each place.
+
+Destination: ${p.dest}
+Language of all spoken lines, names and facts: ${langTxt}
+Topic focus: ${topicNames.join(', ')||'the most interesting aspects of the place'}
+Theme / mood: ${th.en} — ${th.desc}
+Format: ${fmtTxt}
+
+Rules:
+- Exactly ${p.stops} stops. Each stop is a real, specific, physically locatable place (landmark, street, market, temple, viewpoint, café district…) in or around the destination, ordered as a sensible travel route. If the destination is a whole country or region, stops may span several cities.
+- Choose stops that best serve the topic focus.
+- Each stop has ${lines} spoken lines. Each line is 1-3 sentences and at most 45 words.
+- The first line of every stop is a transition spoken while flying there ("we're now gliding over…"). Stop 1 starts with a short, catchy podcast intro (welcome, name the show, what this episode is about). The last stop ends with a warm outro and sign-off.
+- Mention what the listener would see, hear, smell or taste at that exact spot.
+- Be factually accurate. If something is a legend or uncertain, say so explicitly ("legend has it…").
+- Pure spoken text only: no markdown, no emojis, no stage directions, no [brackets], no sound effects.
+
+Return ONLY valid JSON, no prose before or after, with this shape:
+{"title": string (catchy episode title), "summary": string (one sentence), "stops": [{"name": string (display name in the podcast language), "geo": string (precise geocoding query in English: "Place, City, Country"), "lat": number, "lng": number, "heading": number (0-359, good camera bearing to look at it), "fact": string (one punchy fact, max 20 words), "lines": [{"s": "A" or "B", "t": string}]}]}`;
+}
+function extractJSON(text){
+  if(text && typeof text==='object') return text;
+  let s = String(text||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try{ return JSON.parse(s); }catch(e){}
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if(a>=0 && b>a){ try{ return JSON.parse(s.slice(a,b+1)); }catch(e){} }
+  throw new Error('AI returned text that is not valid JSON');
+}
+function normalize(obj, p){
+  const o = extractJSON(obj);
+  const stops = (o.stops||[]).map((s,i) => ({
+    name: String(s.name||('Stop '+(i+1))), geo: String(s.geo||s.name||''),
+    lat: +s.lat, lng: +s.lng, heading: isFinite(+s.heading) ? +s.heading : (i*67)%360,
+    fact: String(s.fact||''),
+    lines: (s.lines||[]).map(l => ({ s: (p.fmt==='solo' ? 'A' : (String(l.s||l.speaker||'A').toUpperCase()==='B'?'B':'A')), t: String(l.t||l.text||'').trim() })).filter(l => l.t)
+  })).filter(s => s.lines.length && isFinite(s.lat) && isFinite(s.lng) && Math.abs(s.lat)<=90 && Math.abs(s.lng)<=180);
+  if(!stops.length) throw new Error('Script has no usable stops');
+  return { title:String(o.title||p.dest), summary:String(o.summary||''), stops };
+}
+
+/* ---------------- library (ready-made tours written by Claude) ---------------- */
+const AUD = {kids:'aKids',student:'aStudent',relax:'aRelax',all:'aAll',travel:'aTravel',mine:'aMine'};
+let libFilter = 'all';
+function tourToScript(tr){
+  if(tr.script) return Object.assign({}, tr.script, {id:tr.id});
+  return { id:tr.id, title:tr.title, summary:tr.sum||'', theme:tr.theme, hosts:tr.hosts,
+    stops: tr.stops.map(s => ({ name:s[0], geo:s[1], lat:s[2], lng:s[3], heading:s[4], fact:s[5],
+      lines: s[6].map(x => ({ s:x.slice(0,1)==='B'?'B':'A', t:x.slice(2) })) })) };
+}
+function mineList(){ return store.get('mine', []); }
+function saveMine(script, p){
+  const id = 'my-'+Date.now().toString(36);
+  const item = { id, lang:p.lang, e:'✨', region:'mine', theme:p.theme, aud:['mine'], title:script.title, dest:p.dest, sum:script.summary, n:script.stops.length,
+    words: script.stops.reduce((a,s)=>a+s.lines.reduce((b,l)=>b+l.t.split(/\s+/).length,0),0), script:Object.assign({}, script, {id}) };
+  const list = [item].concat(mineList()).slice(0,12); store.set('mine', list); return id;
+}
+function allTours(){ return (window.WC_TOURS||[]).concat(mineList()); }
+function tourMinutes(tr){
+  const w = tr.words || tr.stops.reduce((a,s)=>a+s[6].reduce((b,x)=>b+x.split(/\s+/).length,0),0);
+  return Math.max(2, Math.round(w/150 + (tr.n||tr.stops.length)*0.12));
+}
+function renderLib(){
+  const F = [['all','fAll'],['vn','fVn'],['world','fWorld'],['kids','fKids'],['student','fStudent'],['relax','fRelax'],['mine','fMine']];
+  $('#libFilters').innerHTML = F.map(([k,l]) => `<span class="chip ${libFilter===k?'on':''}" data-f="${k}">${t(l)}</span>`).join('');
+  const list = allTours().filter(tr => tr.lang===LANG).filter(tr => libFilter==='all' ? true :
+    libFilter==='vn'||libFilter==='world' ? tr.region===libFilter : libFilter==='mine' ? tr.region==='mine' : (tr.aud||[]).includes(libFilter));
+  if(!list.length){ $('#libGrid').innerHTML = `<div class="libEmpty">${libFilter==='mine' ? t('emptyMine') : '—'}</div>`; return; }
+  $('#libGrid').innerHTML = list.map(tr => {
+    const th = THEMES[tr.theme]||THEMES.chill; const n = tr.n || tr.stops.length;
+    const tags = [th.e+' '+(LANG==='vi'?th.vi:th.en)].concat((tr.aud||[]).filter(a=>a!=='all').map(a=>t(AUD[a]||a)));
+    return `<div class="tcard" data-id="${esc(tr.id)}"><div class="te">${tr.e||'🧭'}</div><div class="tb"><div class="tt">${esc(tr.title)}</div>
+      <div class="td">${esc(tr.dest)} · ${n} ${t('stopsN')} · ~${tourMinutes(tr)} ${t('min')}</div><div class="tsum">${esc(tr.sum||'')}</div>
+      <div class="ttags">${tags.map(x=>`<span>${esc(x)}</span>`).join('')}</div></div><button class="tplay" aria-label="Play">▶</button>
+      ${tr.region==='mine'?`<button class="tdel" data-del="${esc(tr.id)}" title="${t('del')}">✕</button>`:''}</div>`;
+  }).join('');
+}
+function openLib(){ renderLib(); $('#lib').classList.remove('hidden'); if(P.script) $('#lib').classList.add('over'); $('#lib').scrollTop = 0; }
+function closeLib(){ if(P.script) $('#lib').classList.add('hidden'); }
+function playTour(id){
+  const tr = allTours().find(x => x.id===id); if(!tr) return;
+  Speech.prime(); pause();   if(S.ambient){ try{ (Amb.ctx ||= new (window.AudioContext||window.webkitAudioContext)()).resume(); }catch(e){} }
+  startTour(tourToScript(tr));
+}
+
+/* ---------------- voice UI ---------------- */
+function fillVoices(){
+  const list = Speech.forLang(LANG);
+  const selA = $('#voiceA'), selB = $('#voiceB');
+  const opts = '<option value="">'+t('voiceAuto')+'</option>' + list.map(v => `<option value="${v.name.replace(/"/g,'&quot;')}">${v.name.replace(/^Microsoft\s+/,'').replace(/\s*-\s*[^-]+$/,'')}${v.localService?'':' ☁'}</option>`).join('');
+  selA.innerHTML = opts; selB.innerHTML = opts;
+  if(S.voiceA && list.some(v=>v.name===S.voiceA)) selA.value = S.voiceA;
+  if(S.voiceB && list.some(v=>v.name===S.voiceB)) selB.value = S.voiceB;
+  const w = $('#voiceWarn');
+  if(Speech.ready && !list.length){ w.textContent = t('noVi'); w.classList.remove('hidden'); } else w.classList.add('hidden');
+}
+function resolveVoices(){
+  const list = Speech.forLang(LANG);
+  let a = Speech.byName($('#voiceA').value), b = Speech.byName($('#voiceB').value);
+  const male = /nam ?minh|an\b|guy|davis|andrew|brian|christopher|eric|roger|steffan|ryan|male|daniel|alex|aaron|fred/i;
+  const female = /hoai ?my|aria|jenny|emma|ava|michelle|sonia|libby|female|samantha|zira|susan|linh|karen/i;
+  if(!a) a = list.find(v=>male.test(v.name)) || list[0] || null;
+  if(!b) b = list.find(v=>v!==a && female.test(v.name)) || list.find(v=>v!==a) || a;
+  return [a,b];
+}
+function voiceFor(spk){
+  const [a,b] = resolveVoices(); const th = THEMES[curTheme()]||THEMES.chill;
+  const v = spk==='B' ? b : a;
+  let pitch = th.pitch; if(spk==='B' && a && b && a.name===b.name) pitch *= 1.22;
+  return { voice:v, rate: th.rate*S.rate, pitch, lang:LANG };
+}
+
+/* ---------------- player ---------------- */
+const P = { script:null, i:0, j:0, token:0, playing:false, flown:-1 };
+function api(){ return window.WCAdapter; }
+
+function showSubtitle(line){
+  const [a,b] = hostNames(); const spk = $('#spk');
+  spk.textContent = (line.s==='B'?b:a).slice(0,1).toUpperCase(); spk.className = line.s==='B'?'B':''; spk.classList.add('talk');
+  $('#subName').textContent = line.s==='B'?b:a; $('#subLine').textContent = line.t;
+}
+function renderItin(){
+  const sc = P.script; $('#tourTitle').textContent = sc.title; $('#tourSum').textContent = sc.summary;
+  $('#itinList').innerHTML = sc.stops.map((s,i)=>`<div class="stopItem ${i===P.i?'on':''} ${i<P.i?'done':''}" data-i="${i}"><div class="n">${i+1}</div><div><div class="t">${esc(s.name)}</div><div class="f">${esc(s.fact)}</div></div></div>`).join('');
+  $('#prog').innerHTML = sc.stops.map((s,i)=>`<i data-i="${i}" class="${i<P.i?'done':''} ${i===P.i?'on':''}"></i>`).join('');
+  $('#stopTitle').textContent = (P.i+1)+'/'+sc.stops.length+' · '+sc.stops[P.i].name;
+  const cur = $('#prog i.on'); if(cur) cur.style.setProperty('--p', Math.round(100*P.j/Math.max(1,sc.stops[P.i].lines.length))+'%');
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function showCard(i){
+  const s = P.script.stops[i]; const c = $('#card');
+  $('#cardK').textContent = t('stop')+' '+(i+1)+'/'+P.script.stops.length; $('#cardH').textContent = s.name; $('#cardP').textContent = s.fact;
+  const a = $('#cardLink'); a.textContent = t('see360'); a.href = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+s.lat+','+s.lng+'&heading='+Math.round(s.heading||0);
+  c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+}
+function setPlayIcon(){ $('#playBtn').textContent = P.playing ? '❚❚' : '▶'; }
+
+async function playFrom(i, j){
+  const my = ++P.token; P.playing = true; setPlayIcon(); Speech.stop();
+  const live = () => P.token===my;
+  const A = api();
+  for(P.i=i; P.i<P.script.stops.length; P.i++, j=0){
+    const stop = P.script.stops[P.i]; P.j = j||0; renderItin(); A.map.highlight && A.map.highlight(P.i);
+    let fly = Promise.resolve();
+    if(P.flown!==P.i){
+      A.map.stopOrbit && A.map.stopOrbit();
+      showCard(P.i); Amb.step(P.i);
+      $('#modeBadge').textContent = '🧭 '+t('flying')+' '+stop.name+'…';
+      const prev = P.script.stops[P.i-1]||null;
+      fly = A.map.flyTo(stop, P.i, prev).catch(e=>console.warn(e)).then(()=>{ if(live()){ P.flown = P.i; A.map.orbit && A.map.orbit(stop); $('#modeBadge').textContent = '📍 '+stop.name; } });
+    }else{ A.map.orbit && A.map.orbit(stop); }
+    for(; P.j<stop.lines.length; P.j++){
+      if(!live()) return;
+      const line = stop.lines[P.j]; showSubtitle(line); renderItin(); Amb.duck(true);
+      await Speech.say(line.t, {...voiceFor(line.s), isLive:live});
+      Amb.duck(false); $('#spk').classList.remove('talk');
+      if(!live()) return;
+      await sleep(line.s===(stop.lines[P.j+1]||{}).s ? 250 : 380);
+    }
+    await fly; if(!live()) return;
+    await sleep(600);
+  }
+  P.playing = false; P.i = P.script.stops.length-1; setPlayIcon(); A.map.stopOrbit && A.map.stopOrbit();
+  $('#subName').textContent = 'WanderCast'; $('#subLine').textContent = t('end'); Amb.stop();
+}
+function pause(){ P.token++; P.playing = false; Speech.stop(); setPlayIcon(); $('#spk').classList.remove('talk'); api().map.stopOrbit && api().map.stopOrbit(); }
+function jump(i){ if(!P.script) return; i = Math.max(0, Math.min(P.script.stops.length-1, i)); P.flown = -1; Speech.prime(); playFrom(i, 0); }
+
+async function startTour(script){
+  P.script = script; P.i = 0; P.j = 0; P.flown = -1;
+  $('#lib').classList.add('hidden'); $('#lib').classList.add('over'); $('#itin').classList.remove('hidden'); $('#player').classList.remove('hidden'); $('#modeBadge').classList.remove('hidden');
+  $('#app').classList.remove('panelOpen'); $('#app').classList.add('panelHidden');
+  api().map.setRoute(script.stops);
+  renderItin(); Amb.start(curTheme());
+  if(script.id){ try{ location.hash = script.id; }catch(e){} }
+  playFrom(0, 0);
+}
+
+let generating = false;
+async function generate(){
+  if(generating) return;
+  S.dest = $('#dest').value.trim(); S.topicCustom = $('#topicCustom').value;
+  if(!S.dest){ toast(t('needDest'),'warn'); $('#dest').focus(); return; }
+  Speech.prime(); if(S.ambient) { try{ (Amb.ctx ||= new (window.AudioContext||window.webkitAudioContext)()).resume(); }catch(e){} }
+  pause();
+  generating = true; const btn = $('#startBtn'); btn.disabled = true;
+  const st = msg => { $('#genStatus').innerHTML = '<span class="spinner"></span>'+esc(msg); };
+  st(t('writing'));
+  try{
+    const p = prefs(); const raw = await api().ai.generate(p, buildPrompt(p), st);
+    let script = normalize(raw, p);
+    if(api().ai.refine) script = await api().ai.refine(script, p, st);
+    script.theme = S.theme; script.hosts = names(); script.id = saveMine(script, p); toast(t('saved'));
+    $('#genStatus').textContent = t('ready');
+    await startTour(script);
+    setTimeout(()=>{ $('#genStatus').textContent=''; }, 2500);
+  }catch(e){
+    console.error(e); $('#genStatus').textContent = '';
+    toast((LANG==='vi'?'Không tạo được kịch bản: ':'Could not create the script: ')+(e.message||e), 'err', 7000);
+  }finally{ generating = false; btn.disabled = false; }
+}
+
+/* ---------------- UI wiring ---------------- */
+function applyLang(){
+  $$('[data-t]').forEach(el => { const k = el.dataset.t; if(T.vi[k]!==undefined) el.innerHTML = t(k); });
+  $$('[data-tp]').forEach(el => el.placeholder = t(el.dataset.tp));
+  $$('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.v===LANG));
+  document.documentElement.lang = LANG;
+  const [a,b] = names(); $('#nameA').value = a; $('#nameB').value = b;
+  renderChips(); renderLib(); fillVoices();
+  window.WCAdapter && window.WCAdapter.onLang && window.WCAdapter.onLang(LANG, t);
+}
+function renderChips(){
+  $('#topicChips').innerHTML = TOPICS.map(([id,e,vi,en]) => `<span class="chip ${S.topics.includes(id)?'on':''}" data-id="${id}">${e} ${LANG==='vi'?vi:en}</span>`).join('');
+  $('#themeChips').innerHTML = Object.entries(THEMES).map(([id,x]) => `<span class="chip ${S.theme===id?'on':''}" data-id="${id}">${x.e} ${LANG==='vi'?x.vi:x.en}</span>`).join('');
+  $('#destChips').innerHTML = DESTS.slice(0,10).map(d => `<span class="chip" data-d="${d}">${d}</span>`).join('');
+}
+function segInit(id, key, cb){
+  const el = $(id);
+  $$(id+' button').forEach(b => b.classList.toggle('on', String(S[key])===b.dataset.v));
+  el.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return;
+    $$(id+' button').forEach(x => x.classList.toggle('on', x===b)); S[key] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; store.set(key, S[key]); cb && cb(); });
+}
+function boot(){
+  if(!window.WCAdapter){ document.body.innerHTML = 'Adapter missing'; return; }
+  Speech.load();
+  segInit('#fmtSeg','fmt', () => $('#voiceBRow').style.opacity = S.fmt==='solo' ? .4 : 1);
+  segInit('#stopSeg','stops'); segInit('#lenSeg','len');
+  $('#voiceBRow').style.opacity = S.fmt==='solo' ? .4 : 1;
+  $('#langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; LANG = b.dataset.v; store.set('lang', LANG); S.nameA = store.get('nameA_'+LANG,null); S.nameB = store.get('nameB_'+LANG,null); applyLang(); });
+  $('#topicChips').addEventListener('click', e => { const c = e.target.closest('.chip'); if(!c) return; const id = c.dataset.id;
+    if(S.topics.includes(id)) S.topics = S.topics.filter(x=>x!==id); else { S.topics.push(id); if(S.topics.length>3) S.topics.shift(); }
+    store.set('topics', S.topics); renderChips(); });
+  $('#themeChips').addEventListener('click', e => { const c = e.target.closest('.chip'); if(!c) return; S.theme = c.dataset.id; store.set('theme', S.theme); renderChips(); });
+  $('#destChips').addEventListener('click', e => { const c = e.target.closest('.chip'); if(c) $('#dest').value = c.dataset.d; });
+  $('#diceBtn').addEventListener('click', () => { $('#dest').value = RANDOM_DESTS[Math.floor(Math.random()*RANDOM_DESTS.length)]; });
+  $('#dest').addEventListener('keydown', e => { if(e.key==='Enter') generate(); });
+  $('#voiceA').addEventListener('change', e => { S.voiceA = e.target.value; store.set('voiceA', S.voiceA); });
+  $('#voiceB').addEventListener('change', e => { S.voiceB = e.target.value; store.set('voiceB', S.voiceB); });
+  $('#nameA').addEventListener('change', e => { S.nameA = e.target.value.trim()||null; store.set('nameA_'+LANG, S.nameA); });
+  $('#nameB').addEventListener('change', e => { S.nameB = e.target.value.trim()||null; store.set('nameB_'+LANG, S.nameB); });
+  $('#rate').value = S.rate; $('#rate').addEventListener('input', e => { S.rate = +e.target.value; store.set('rate', S.rate); });
+  $('#ambient').checked = S.ambient; $('#ambient').addEventListener('change', e => { S.ambient = e.target.checked; store.set('ambient', S.ambient); if(!S.ambient) Amb.stop(); else if(P.playing) Amb.start(curTheme()); });
+  $('#testVoice').addEventListener('click', async () => { Speech.stop(); const [a,b] = names();
+    await Speech.say(t('sample').replace('{n}',a), voiceFor('A')); if(S.fmt==='duo') await Speech.say(t('sample').replace('{n}',b), voiceFor('B')); });
+  $('#startBtn').addEventListener('click', generate);
+  $('#playBtn').addEventListener('click', () => { if(!P.script) return; if(P.playing) pause(); else { Speech.prime(); if(S.ambient && !Amb.master) Amb.start(curTheme()); playFrom(P.i, P.j); } });
+  $('#prevBtn').addEventListener('click', () => jump(P.i-1));
+  $('#nextBtn').addEventListener('click', () => jump(P.i+1));
+  $('#newBtn').addEventListener('click', () => { pause(); Amb.stop(); $('#app').classList.add('panelOpen'); $('#app').classList.remove('panelHidden'); $('#lib').classList.add('hidden'); $('#dest').focus(); });
+  $('#libBtn').addEventListener('click', () => { const l = $('#lib'); if(l.classList.contains('hidden')) openLib(); else closeLib(); });
+  $('#libOpen').addEventListener('click', () => { $('#app').classList.remove('panelOpen'); openLib(); });
+  $('#libClose').addEventListener('click', closeLib);
+  $('#brand').addEventListener('click', openLib); $('#brand').style.cursor = 'pointer';
+  $('#libFilters').addEventListener('click', e => { const c = e.target.closest('.chip'); if(!c) return; libFilter = c.dataset.f; renderLib(); });
+  $('#libGrid').addEventListener('click', e => {
+    const d = e.target.closest('[data-del]'); if(d){ e.stopPropagation(); store.set('mine', mineList().filter(x=>x.id!==d.dataset.del)); renderLib(); return; }
+    const c = e.target.closest('.tcard'); if(c) playTour(c.dataset.id); });
+  $('#itinList').addEventListener('click', e => { const s = e.target.closest('.stopItem'); if(s) jump(+s.dataset.i); });
+  $('#prog').addEventListener('click', e => { const s = e.target.closest('i'); if(s) jump(+s.dataset.i); });
+  $('#menuBtn').addEventListener('click', () => { if(window.innerWidth>860) $('#app').classList.toggle('panelHidden'); else $('#app').classList.toggle('panelOpen'); });
+  $('#itin header').addEventListener('click', () => $('#itin').classList.toggle('collapsed'));
+  document.addEventListener('keydown', e => { if(e.target.matches('input,textarea,select')) return; if(e.code==='Space' && P.script){ e.preventDefault(); $('#playBtn').click(); } if(e.key==='ArrowRight') jump(P.i+1); if(e.key==='ArrowLeft') jump(P.i-1); });
+  applyLang();
+  const h = decodeURIComponent((location.hash||'').slice(1));
+  const ht = h && allTours().find(x => x.id===h);
+  if(ht){ if(ht.lang!==LANG){ LANG = ht.lang; applyLang(); } libFilter = 'all'; renderLib();
+    setTimeout(() => { const el = document.querySelector('.tcard[data-id="'+h+'"]'); if(el){ el.classList.add('focus'); el.scrollIntoView({block:'center'}); toast(t('tapPlay')); } }, 300); }
+  window.WCAdapter.init($('#stage'), { toast, t, lang:()=>LANG, store, esc, sleep, onModeChange:()=>{ if(P.script){ P.flown=-1; if(P.playing) playFrom(P.i, P.j); else { api().map.setRoute(P.script.stops); } } } });
+}
+window.WC = { toast, buildPrompt, normalize, extractJSON, store, sleep, T, t:()=>t };
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+</body></html>
