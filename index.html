@@ -1533,6 +1533,7 @@ async function walkTo(stop){
   PV.stop = stop;
   if(!line || line.length < 2){ PV.pos = {lat:stop.lat, lng:stop.lng}; await loadPano(stop.lat, stop.lng, stop.heading||0); return; }
   const pts = samplePath(line);
+  const badge = $('#modeBadge'); if(badge) badge.textContent = (lang==='vi' ? '🚶 Đang đi bộ tới ' : '🚶 Walking to ') + stop.name + '…';
   for(let i=1;i<pts.length;i++){
     if(tok !== PV.walkTok || !PV.shown) return;
     const p = pts[i]; const last = i === pts.length-1;
