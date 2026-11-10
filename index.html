@@ -1693,13 +1693,21 @@ function startStroll(stop){
 /* ---------- real walking videos (YouTube walking tours, official embedded player) ---------- */
 const VIDEOS = {
   hoian:['cm50M7kCV98','World Wanderings',3722], hanoi:['xId3cHWsta4','World Wanderings',12877], hue:['jFXPTucswWo','POPtravel',5220], halong:['Vl7YOcQUZz4','Lais',545],
-  saigon:['_Rc-sSE29Vc','4K WORLD TOUR',4025], dalat:['Iye9fEeQQ9c','Walking Asia',5090], ninhbinh:['FKBEOQPLecE','GlobalWalk Tours',2246], sapa:['Xl3brTglZT8','Random Walking Tours',6936],
+  saigon:['fCeEkv5crY0','Night Walking Tour',2562], dalat:['xRuzUXZCGpA','Jonny Walk',3548], ninhbinh:['FKBEOQPLecE','GlobalWalk Tours',2246], sapa:['Xl3brTglZT8','Random Walking Tours',6936],
   cantho:['zJOkkiONfVo','POPtravel',3840], phuquoc:['zxfkKABkglQ','Walkscapes',2379], kyoto:['SKJG4xqdH_0','Ambient Exploration',7612], paris:['6BPuGeS6O4w','HP Walking Tours',6299],
   rome:['cH1E97JIyUo','HP Walking Tours',13013], cairo:['2mGAKmK2zTk','World Wanderings',16228], giza:['EaQr917lRgI','Prowalk Tours',6568], luxor:['XybWba5c6D8','Gimbal Walk TV',2566],
-  newyork:['1aedKShR1rA','WALKS and the CITY',14368], seoul:['unY9hqu9bEk','Walking OZ',5688], bangkok:['3CRJWy5zXvg','HP Walking Tours',6166], bali:['b4VLlbM_qHI','HP Walking Tours',5502],
+  newyork:['lrGLYS94FO4','Julien In NYC',2961], seoul:['RaRnBq6a3Io','Walking OZ',4280], bangkok:['3CRJWy5zXvg','HP Walking Tours',6166], bali:['b4VLlbM_qHI','HP Walking Tours',5502],
   london:['8WlUiln-VeY','HP Walking Tours',17016], greatwall:['cVmM6sUcdwg','Footprint',6322], tajmahal:['7WJNuThYCCU','APR World Travel',2988], petra:['J4NMLfsd5tU','Prowalk Tours',17755],
   chichen:['DqqQzs5W6Co','TRAVOH',5918], machu:['zssO1ENPoI0','Mr Walking',2454], rio:['bmDS1pN0wo4','Prowalk Tours',8804]
 };
+const STOP_TIMES = {"rome": {"Colosseum": 6993, "Roman Forum": 7633, "Pantheon": 59, "Trevi Fountain": 9273, "St. Peter's Basilica": 2247}, "bangkok": {"Grand Palace": 32, "Wat Pho": 168, "Wat Arun": 42}, "bali": {"Sacred Monkey Forest Sanctuary": 1118, "Tegallalang Rice Terrace": 5053}, "london": {"Elizabeth Tower": 6196, "British Museum": 7610, "Tower of London": 62, "Buckingham Palace": 9619}, "hanoi": {"Hoan Kiem Lake": 5869, "Dong Xuan Market": 8740}, "kyoto": {"Hanamikoji Street": 1836}, "paris": {"Eiffel Tower": 5604, "Louvre Museum": 3233, "Notre-Dame de Paris": 1673}, "giza": {"Great Pyramid of Giza": 1341, "Great Sphinx of Giza": 5800}, "petra": {"Al-Khazneh Treasury": 2455}, "rio": {"Christ the Redeemer": 754}, "halong": {"Ha Long Bay": 189, "Sung Sot Cave": 380}, "cairo": {"Khan el-Khalili": 162}, "newyork": {"Times Square": 345, "Bethesda Terrace": 900}, "seoul": {"Gyeongbokgung Palace": 1615, "Bukchon Hanok Village": 0}, "saigon": {"Ben Thanh Market": 1864, "Nguyen Hue Walking Street": 1280}, "dalat": {"Xuan Huong Lake": 16, "Da Lat Market": 3521}}; // seconds into each walking video, from the creators' chapter markers
+function stopTime(key, stop, idx){
+  const name = (stop.geo||stop.name||'').split(',')[0].trim();
+  const m = STOP_TIMES[key]; if(m && m[name] != null) return Math.max(0, m[name] + 3);
+  const d = (VIDEOS[key]||[])[2] || 0; if(d < 120) return 0;
+  const n = Math.max(1, (M.stops||[]).length);
+  return Math.floor(d * (0.06 + 0.84*((idx||0)/n)));          // no chapter: an evenly spaced part of the walk
+}
 const TOUR_VIDEO = {
   egypt: s => /karnak|luxor/i.test(s.geo) ? 'luxor' : (/khalili|cairo/i.test(s.geo) && !/giza/i.test(s.geo)) ? 'cairo' : 'giza',
   wonders: s => /great wall|mutianyu/i.test(s.geo) ? 'greatwall' : /taj/i.test(s.geo) ? 'tajmahal' : /petra|khazneh/i.test(s.geo) ? 'petra'
@@ -1790,14 +1798,18 @@ async function videoShow(stop, idx){
   YV.src = 'yt';
   let pl; try{ pl = await ytPlayer(); }catch(e){ console.warn(e); return false; }
   $('#vid').classList.remove('hidden');
+  const at = stopTime(key, stop, idx); const fade = $('#vfade');
   if(YV.key !== key){
-    // new place: start at a point that matches how far into the tour we are (ads, if any, play first)
-    const n = Math.max(1, (M.stops||[]).length); const frac = 0.06 + 0.84*((idx||0)/n);
-    const d = VIDEOS[key][2] || 0; const fade = $('#vfade'); fade.classList.add('on');
-    YV.key = key; pl.loadVideoById({ videoId:VIDEOS[key][0], startSeconds: d > 120 ? Math.floor(d*frac) : 0 });
+    fade.classList.add('on');
+    YV.key = key; pl.loadVideoById({ videoId:VIDEOS[key][0], startSeconds:at });
     setTimeout(() => fade.classList.remove('on'), 1200);
+  }else if(YV.atStop !== idx){
+    // same video, new stop: jump to that stop's part of the walk (a short fade hides the cut)
+    fade.classList.add('on'); await ctx.sleep(380);
+    try{ pl.seekTo(at, true); }catch(e){}
+    setTimeout(() => fade.classList.remove('on'), 700);
   }
-  // same place: just keep walking — no seeking (seeking can trigger mid-roll ads and breaks the flow)
+  YV.atStop = idx;
   try{ pl.unMute(); }catch(e){} vidVolume(); try{ pl.playVideo(); }catch(e){}
   YV.shown = true; M.active = 'video'; vidCredit(key); viewBtn();
   return true;
