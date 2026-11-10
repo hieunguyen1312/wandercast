@@ -1755,7 +1755,7 @@ function myShow(){
   requestAnimationFrame(() => { try{ MY.v && MY.v.resize(); }catch(e){} }); viewBtn();
 }
 function myHide(){
-  MY.tok++; if(!MY.shown) return; MY.shown = false;
+  MY.tok++; MY.stop = null; if(!MY.shown) return; MY.shown = false;
   $('#mly').classList.add('hidden'); if(M.active === 'mly') M.active = 'sat'; viewBtn();
 }
 async function myMove(id){ try{ await MY.v.moveTo(id); return true; }catch(e){ return false; } }
@@ -1799,10 +1799,11 @@ async function mlyFlow(stop, prev){
     ctx.toast(l(MY.bad ? 'mlyBad' : 'needMly'), 'warn', 7000); if(!myKey()) $('details.adv').open = true;
     myHide(); await panoFlow(stop, prev); return;
   }
-  const tok = ++MY.tok;
+  if(MY.shown && MY.stop === stop){ const b = $('#modeBadge'); if(b) b.textContent = '📍 ' + stop.name; return; }   // already here: keep strolling
+  const tok = ++MY.tok; MY.stop = stop;
   if(MY.shown && hav(MY.pos || prev || stop, stop) < 2.5){ await myWalk(stop, tok); }
   else{
-    myHide(); MY.tok = tok; panoHide(); showLayer('sat');
+    myHide(); MY.tok = tok; MY.stop = stop; panoHide(); showLayer('sat');
     const found = myFind(stop).catch(e => { console.warn('mapillary', e); return []; });   // search while flying
     loadMly().catch(()=>{});
     await satFly(stop, prev, 17.4, prev ? 5500 : 3500);
