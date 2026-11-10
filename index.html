@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WanderCast – AI lữ hành podcast</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"><script defer src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
@@ -237,6 +237,41 @@ details.adv .sec:first-of-type{margin-top:10px}
 #nvModal h3{margin:0 0 8px;font-size:18px}
 #nvModal p{margin:0 0 16px;color:#c9d1ec;font-size:14px;line-height:1.5}
 #nvModal .btn{margin-top:8px}
+
+/* ---------- mobile layout v2 ---------- */
+@media (max-width:860px){
+  #brand{top:calc(10px + env(safe-area-inset-top));left:10px;padding:5px 12px 5px 5px;gap:8px}
+  #brand small{display:none}
+  #brand .logo{width:26px;height:26px;font-size:14px}
+  #brand b{font-size:14px}
+  #menuBtn{top:calc(10px + env(safe-area-inset-top));right:10px;padding:7px 12px;border-radius:999px;background:var(--panel);backdrop-filter:blur(10px)}
+  #menuBtn span{display:none}
+  #modeBadge{display:none}
+  #viewBtn{top:calc(10px + env(safe-area-inset-top));right:62px;bottom:auto;padding:7px 11px;font-size:15px}
+  #itin{top:calc(54px + env(safe-area-inset-top));left:10px;right:10px;width:auto;max-height:46vh;border-radius:12px}
+  #itin header{padding:8px 12px}
+  #itin header b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #itin header small{display:none}
+  #itin.collapsed{background:var(--panel)}
+  #card{top:calc(100px + env(safe-area-inset-top));bottom:auto;left:10px;right:auto;max-width:calc(100% - 20px);padding:8px 12px;border-radius:12px}
+  #card .k{font-size:10.5px}
+  #card h3{font-size:15px;margin:2px 0 0}
+  #card p,#card .cardLink{display:none}
+  #vidCredit{top:auto;bottom:calc(env(safe-area-inset-bottom) + 172px);left:10px;font-size:10.5px;padding:3px 8px;opacity:.8}
+  #player{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));padding:9px 11px;border-radius:16px}
+  #subtitle{gap:9px;min-height:0}
+  #spk{width:32px;height:32px;font-size:13px}
+  #subName{font-size:11px}
+  #subLine{font-size:14px;line-height:1.4;max-height:4.3em;overflow-y:auto}
+  #ctrl{margin-top:6px;gap:6px}
+  #ctrl .btn.icon{padding:6px 9px;font-size:13px}
+  #playBtn{width:40px;height:40px;font-size:15px}
+  #prog{margin:0 4px}
+  #lib{padding:calc(60px + env(safe-area-inset-top)) 10px calc(16px + env(safe-area-inset-bottom))}
+  #panel{padding-top:env(safe-area-inset-top)}
+  #footStart{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  .maplibregl-ctrl-bottom-right{display:none}
+}
 </style></head><body>
 <div id="app">
   <div id="stage"></div>
@@ -1784,6 +1819,7 @@ function viewBtn(){
   const b = $('#viewBtn'); if(!b) return;
   b.classList.toggle('hidden', !(M.tour && (M.mode==='pano' || M.mode==='video')));
   b.textContent = (PV.shown || YV.shown) ? l('toMap') : (M.mode==='video' ? l('toVideo') : l('toPano'));
+  b.title = b.textContent; if(window.matchMedia('(max-width:860px)').matches) b.textContent = b.textContent.split(' ')[0];  // icon only on phones
 }
 
 /* ---------- route ---------- */
@@ -2291,12 +2327,14 @@ function renderItin(){
   $('#stopTitle').textContent = (P.i+1)+'/'+sc.stops.length+' · '+sc.stops[P.i].name;
   const cur = $('#prog i.on'); if(cur) cur.style.setProperty('--p', Math.round(100*P.j/Math.max(1,sc.stops[P.i].lines.length))+'%');
 }
+const isMobile = () => window.matchMedia('(max-width:860px)').matches;
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function showCard(i){
   const s = P.script.stops[i]; const c = $('#card');
   $('#cardK').textContent = t('stop')+' '+(i+1)+'/'+P.script.stops.length; $('#cardH').textContent = s.name; $('#cardP').textContent = s.fact;
   const a = $('#cardLink'); a.textContent = t('see360'); a.href = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+s.lat+','+s.lng+'&heading='+Math.round(s.heading||0);
   c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+  clearTimeout(showCard._t); if(isMobile()) showCard._t = setTimeout(() => c.classList.remove('show'), 5000);
 }
 function setPlayIcon(){ $('#playBtn').textContent = P.playing ? '❚❚' : '▶'; }
 
@@ -2358,6 +2396,7 @@ async function startTour(script){
   P.script = script; P.i = 0; P.j = 0; P.flown = -1;
   $('#lib').classList.add('hidden'); $('#lib').classList.add('over'); $('#itin').classList.remove('hidden'); $('#player').classList.remove('hidden'); $('#modeBadge').classList.remove('hidden');
   $('#app').classList.remove('panelOpen'); $('#app').classList.add('panelHidden');
+  if(isMobile()) $('#itin').classList.add('collapsed');
   api().map.setTour && api().map.setTour(script);
   api().map.setRoute(script.stops);
   renderItin(); Amb.start(curTheme());
