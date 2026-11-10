@@ -272,6 +272,9 @@ details.adv .sec:first-of-type{margin-top:10px}
   #footStart{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
   .maplibregl-ctrl-bottom-right{display:none}
 }
+
+#mly{background:#000;overflow:hidden}
+#mly .mapillary-attribution-container{opacity:.75}
 </style></head><body>
 <div id="app">
   <div id="stage"></div>
@@ -341,7 +344,7 @@ details.adv .sec:first-of-type{margin-top:10px}
 
       <div class="sec">
   <label data-t="mapMode">Chế độ bản đồ</label>
-  <div class="seg" id="mapSeg" style="flex-wrap:wrap"><button data-v="video" class="on" data-l="video">🎥 Video đi bộ</button><button data-v="pano" data-l="pano">🚶 Đi vào 360°</button><button data-v="sat" data-l="sat">🛰️ Vệ tinh 3D</button><button data-v="sv" data-l="sv">🔑 Street View đi bộ</button><button data-v="g3d" data-l="g3d">🔑 Google 3D</button></div>
+  <div class="seg" id="mapSeg" style="flex-wrap:wrap"><button data-v="video" class="on" data-l="video">🎥 Video đi bộ</button><button data-v="pano" data-l="pano">🚶 Đi vào 360°</button><button data-v="mly" data-l="mly">📸 Mapillary đi bộ</button><button data-v="sat" data-l="sat">🛰️ Vệ tinh 3D</button><button data-v="sv" data-l="sv">🔑 Street View đi bộ</button><button data-v="g3d" data-l="g3d">🔑 Google 3D</button></div>
   <div class="note" id="mapNote"></div>
 </div>
 
@@ -361,6 +364,11 @@ details.adv .sec:first-of-type{margin-top:10px}
     <option value="gemini-3.6-flash">gemini-3.6-flash</option>
     <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
   </select>
+</div>
+<div class="sec">
+  <label data-l="mlyK">Mapillary client token</label>
+  <input id="mlyKey" type="password" class="inp" placeholder="MLY|…" autocomplete="off">
+  <div class="note" data-l="mlyN"></div>
 </div>
 <div class="sec">
   <label data-l="gm">Google Maps API key</label>
@@ -1292,7 +1300,11 @@ const R = Math.PI/180;
 const M = { ready:null, ok:false, map:null, agent:null, pins:[], mode:'sat', active:'sat', raf:0, hold:0, sv:null, svSvc:null, m3d:null, g:null, tour:false, idle:0, walkAt:0 };
 
 const L = {
-  vi:{video:'🎥 Video đi bộ', toVideo:'🎥 Xem video', vErr:'Video này không phát được ở đây, chuyển sang 360°.',
+  vi:{mly:'📸 Mapillary đi bộ', toMly:'📸 Đi bộ Mapillary', mlyK:'Mapillary client token',
+    mlyN:'Miễn phí, không cần thẻ: vào <a href="https://www.mapillary.com/dashboard/developers" target="_blank" rel="noopener">mapillary.com/dashboard/developers</a> → Register application → copy <b>Client Token</b> (bắt đầu bằng MLY|).',
+    nmly:'Ảnh đường phố do cộng đồng chụp liên tục (Mapillary): agent đáp xuống phố rồi tự bước đi theo chuỗi ảnh thật, chuyển cảnh mượt như đang đi bộ. Điểm gần nhau thì đi bộ theo đường thật. Cần Mapillary token miễn phí (Cài đặt nâng cao). Nơi chưa có ảnh thì tự dùng 360° Google.',
+    needMly:'Chế độ Mapillary cần client token miễn phí → mở "Cài đặt nâng cao". Tạm dùng 360°.', noMly:'Mapillary chưa có ảnh gần', mlyBad:'Mapillary từ chối token (kiểm tra lại Client Token MLY|…). Tạm dùng 360°.',
+    video:'🎥 Video đi bộ', toVideo:'🎥 Xem video', vErr:'Video này không phát được ở đây, chuyển sang 360°.',
     nvideo:'Video đi bộ thật quay sẵn (YouTube walking tour) cho từng điểm đến, tiếng phố nhỏ ở nền và tự hạ khi host nói. Mỗi điểm dừng tua tới một đoạn khác của chuyến đi. Nơi chưa có video thì tự chuyển sang 360°.',
     pano:'🚶 Đi vào 360°',sat:'🛰️ Vệ tinh 3D',sv:'🔑 Street View đi bộ',g3d:'🔑 Google 3D',
     npano:'Miễn phí, không cần key: agent bay tới rồi đáp xuống góc nhìn 360° ngoài đường phố (ảnh Google Street View). Điểm gần nhau thì tự đi bộ theo đường phố thật; tới nơi thì đứng ngắm và xoay nhìn quanh trong lúc host kể. Kéo chuột để tự nhìn (app sẽ đứng yên chờ bạn). Nơi nào không có ảnh 360°, bấm nút 🛰️ để xem vệ tinh.',
@@ -1305,7 +1317,11 @@ const L = {
     refine:'Chính xác hoá toạ độ bằng OpenStreetMap',saved:'Đã lưu',needKey:'Chế độ này cần Google Maps API key → mở "Cài đặt nâng cao". Tạm dùng vệ tinh.',
     noSv:'Không có Street View gần', useSat:'→ dùng vệ tinh', gFail:'Google Maps từ chối key (kiểm tra key, API đã bật, giới hạn website). Tạm dùng vệ tinh.',
     wiki:'Chưa có Gemini key → đang ghép kịch bản từ Wikipedia…', geo:'Đang chốt toạ độ chính xác', notFound:'Không tìm thấy địa điểm này', few:'Wikipedia có quá ít bài viết quanh địa điểm này'},
-  en:{video:'🎥 Walking video', toVideo:'🎥 Watch video', vErr:'This video cannot play here, switching to 360°.',
+  en:{mly:'📸 Mapillary walk', toMly:'📸 Mapillary walk', mlyK:'Mapillary client token',
+    mlyN:'Free, no card: go to <a href="https://www.mapillary.com/dashboard/developers" target="_blank" rel="noopener">mapillary.com/dashboard/developers</a> → Register application → copy the <b>Client Token</b> (starts with MLY|).',
+    nmly:'Crowd-sourced street-level photo sequences (Mapillary): the agent lands on the street and steps forward along real image sequences with smooth transitions, like walking. Nearby stops are reached on foot. Needs a free Mapillary token (Advanced settings). Places without imagery fall back to Google 360°.',
+    needMly:'Mapillary mode needs a free client token → open Advanced settings. Using 360° for now.', noMly:'No Mapillary imagery near', mlyBad:'Mapillary rejected the token (check the MLY|… Client Token). Using 360° for now.',
+    video:'🎥 Walking video', toVideo:'🎥 Watch video', vErr:'This video cannot play here, switching to 360°.',
     nvideo:'Real pre-recorded walking videos (YouTube walking tours) for each destination, with quiet street sound that dips when the hosts talk. Each stop jumps to a different part of the walk. Places without a video fall back to 360°.',
     pano:'🚶 Walk-in 360°',sat:'🛰️ Satellite 3D',sv:'🔑 Street View walk',g3d:'🔑 Google 3D',
     npano:'Free, no key: the agent flies there, then drops into a 360° street-level view (Google Street View imagery). Nearby stops are reached on foot along real streets; at each stop the agent looks around while the hosts talk. Drag to look around (the walk pauses for you). If a spot has no 360° imagery, press 🛰️ for satellite.',
@@ -1383,6 +1399,7 @@ function initMap(){
 function showLayer(which){
   if(which!=='pano' && PV.shown) panoHide();
   if(which!=='video' && which!=='sat' && YV.shown) videoHide();
+  if(which!=='mly' && MY.shown) myHide();
   M.active = which;
   $('#gsv').classList.toggle('hidden', which!=='sv');
   $('#g3d').classList.toggle('hidden', which!=='g3d');
@@ -1690,6 +1707,114 @@ function startStroll(stop){
   })();
 }
 
+/* ---------- Mapillary: crowd-sourced street photo sequences, real step-by-step walking (free client token) ---------- */
+const MY = { v:null, lib:null, tok:0, shown:false, pos:null, seq:null, paused:false, bad:false };
+const myKey = () => (st('mlyKey','')||'').trim();
+function loadMly(){
+  if(MY.lib) return MY.lib;
+  MY.lib = new Promise((res, rej) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css'; document.head.appendChild(css);
+    const s = document.createElement('script'); s.src = 'https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js';
+    s.onload = () => res(window.mapillary); s.onerror = () => { MY.lib = null; rej(new Error('mapillary-js failed to load')); };
+    document.head.appendChild(s);
+  });
+  return MY.lib;
+}
+// images around a point, best first (close, recent, 360° preferred)
+async function myNear(lat, lng, r){
+  const d = r/111320, dl = d/Math.max(0.2, Math.cos(lat*R));
+  const u = 'https://graph.mapillary.com/images?access_token='+encodeURIComponent(myKey())+'&fields=id,computed_geometry,geometry,captured_at,is_pano,sequence&limit=80&bbox='
+    + [lng-dl, lat-d, lng+dl, lat+d].map(x => x.toFixed(6)).join(',');
+  let j; try{ j = await getJSON(u); }catch(e){ if(/HTTP 40[13]/.test(e.message)){ MY.bad = true; } throw e; }
+  const now = Date.now(), at = {lat, lng};
+  return (j.data||[]).map(im => { const g = im.computed_geometry || im.geometry; if(!g) return null;
+      const p = {id:im.id, seq:im.sequence, lat:g.coordinates[1], lng:g.coordinates[0]};
+      const age = Math.min(10, (now - (im.captured_at||0))/3.15e10);
+      p.score = hav(p, at)*1000 + age*5 - (im.is_pano ? 12 : 0); return p; })
+    .filter(Boolean).sort((a,b) => a.score - b.score);
+}
+async function myFind(stop){
+  for(const r of [70, 220, 600]){ const list = await myNear(stop.lat, stop.lng, r); if(list.length) return list; }
+  return [];
+}
+async function myInit(){
+  const lib = await loadMly();
+  if(!MY.v){
+    MY.v = new lib.Viewer({ accessToken:myKey(), container:$('#mly'), component:{ cover:false } });
+    MY.v.on('image', e => { const im = e.image; if(!im) return; MY.seq = im.sequenceId; const ll = im.lngLat;
+      if(ll){ MY.pos = {lat:ll.lat, lng:ll.lng}; if(M.ok) M.agent.setLngLat([ll.lng, ll.lat]); } });
+    const hold = () => { PV.hold = Date.now()+15000; };
+    $('#mly').addEventListener('pointerdown', hold); $('#mly').addEventListener('wheel', hold, {passive:true});
+  }
+  return lib;
+}
+function myShow(){
+  $('#mly').classList.remove('hidden'); MY.shown = true; M.active = 'mly';
+  requestAnimationFrame(() => { try{ MY.v && MY.v.resize(); }catch(e){} }); viewBtn();
+}
+function myHide(){
+  MY.tok++; if(!MY.shown) return; MY.shown = false;
+  $('#mly').classList.add('hidden'); if(M.active === 'mly') M.active = 'sat'; viewBtn();
+}
+async function myMove(id){ try{ await MY.v.moveTo(id); return true; }catch(e){ return false; } }
+// keep walking around the stop while the hosts talk: forward along the sequence; at its end (or too far away) turn into another street
+async function myStroll(stop, tok){
+  const lib = await MY.lib; const N = lib.NavigationDirection;
+  while(tok === MY.tok && MY.shown){
+    await ctx.sleep(2400);
+    if(tok !== MY.tok || !MY.shown) return;
+    if(MY.paused || Date.now() < PV.hold) continue;
+    const far = MY.pos && hav(MY.pos, stop)*1000 > 230;
+    let moved = false;
+    if(!far){ try{ await MY.v.moveDir(N.Next); moved = true; }catch(e){} }
+    if(!moved){
+      try{ const list = await myNear(stop.lat, stop.lng, 160); const nxt = list.find(x => x.seq !== MY.seq) || list[0];
+        if(nxt && tok === MY.tok) await myMove(nxt.id); }catch(e){}
+    }
+  }
+}
+// walk to a nearby stop along a real footpath, one photo per step
+async function myWalk(stop, tok){
+  const from = MY.pos || stop; const line = await footRoute(from, stop);
+  if(tok !== MY.tok) return;
+  if(line && line.length > 1){
+    const pts = samplePath(line);
+    const badge = $('#modeBadge'); if(badge) badge.textContent = (lang==='vi' ? '🚶 Đang đi bộ tới ' : '🚶 Walking to ') + stop.name + '…';
+    for(let i=1; i<pts.length; i++){
+      if(tok !== MY.tok || !MY.shown) return;
+      while(MY.paused && tok === MY.tok) await ctx.sleep(400);
+      let im = null; try{ im = (await myNear(pts[i].lat, pts[i].lng, 30))[0]; }catch(e){}
+      if(im){ const t0 = Date.now(); await myMove(im.id); await ctx.sleep(Math.max(0, 1700 - (Date.now()-t0))); }
+      M.map.jumpTo({center:[pts[i].lng, pts[i].lat]});
+    }
+  }
+  try{ const list = await myFind(stop); if(list[0] && tok === MY.tok) await myMove(list[0].id); }catch(e){}
+}
+async function mlyFlow(stop, prev){
+  if(!myKey() || MY.bad){
+    ctx.toast(l(MY.bad ? 'mlyBad' : 'needMly'), 'warn', 7000); if(!myKey()) $('details.adv').open = true;
+    myHide(); await panoFlow(stop, prev); return;
+  }
+  const tok = ++MY.tok;
+  if(MY.shown && hav(MY.pos || prev || stop, stop) < 2.5){ await myWalk(stop, tok); }
+  else{
+    myHide(); MY.tok = tok; panoHide(); showLayer('sat');
+    const found = myFind(stop).catch(e => { console.warn('mapillary', e); return []; });   // search while flying
+    loadMly().catch(()=>{});
+    await satFly(stop, prev, 17.4, prev ? 5500 : 3500);
+    const list = await found;
+    if(tok !== MY.tok) return;
+    if(!list.length){
+      ctx.toast(MY.bad ? l('mlyBad') : l('noMly')+' '+stop.name+' → 360°', 'warn', 4000);
+      await panoShow(stop); PV.pos = {lat:stop.lat, lng:stop.lng}; return;
+    }
+    try{ await myInit(); }catch(e){ console.warn(e); await panoShow(stop); return; }
+    myShow(); MY.tok = tok;
+    if(!await myMove(list[0].id)){ myHide(); await panoShow(stop); return; }
+  }
+  if(tok === MY.tok && MY.shown) myStroll(stop, tok);
+}
+
 /* ---------- real walking videos (YouTube walking tours, official embedded player) ---------- */
 const VIDEOS = {
   hoian:['cm50M7kCV98','World Wanderings',3722], hanoi:['xId3cHWsta4','World Wanderings',12877], hue:['jFXPTucswWo','POPtravel',5220], halong:['Vl7YOcQUZz4','Lais',545],
@@ -1829,8 +1954,8 @@ async function panoFlow(stop, prev){
 
 function viewBtn(){
   const b = $('#viewBtn'); if(!b) return;
-  b.classList.toggle('hidden', !(M.tour && (M.mode==='pano' || M.mode==='video')));
-  b.textContent = (PV.shown || YV.shown) ? l('toMap') : (M.mode==='video' ? l('toVideo') : l('toPano'));
+  b.classList.toggle('hidden', !(M.tour && (M.mode==='pano' || M.mode==='video' || M.mode==='mly')));
+  b.textContent = (PV.shown || YV.shown || MY.shown) ? l('toMap') : (M.mode==='video' ? l('toVideo') : M.mode==='mly' ? l('toMly') : l('toPano'));
   b.title = b.textContent; if(window.matchMedia('(max-width:860px)').matches) b.textContent = b.textContent.split(' ')[0];  // icon only on phones
 }
 
@@ -1862,8 +1987,9 @@ async function flyTo(stop, idx, prev){
     }
     videoHide(); await panoFlow(stop, prev); return;   // no video for this place: walk-in 360° instead
   }
-  if(M.mode==='pano'){ await panoFlow(stop, prev); return; }
-  videoHide();
+  if(M.mode==='pano'){ myHide(); await panoFlow(stop, prev); return; }
+  if(M.mode==='mly'){ videoHide(); await mlyFlow(stop, prev); return; }
+  videoHide(); myHide();
   panoHide();
   if(M.mode==='sv'){ if(await svFly(stop, prev)) return; }
   else if(M.mode==='g3d'){ if(await g3dFly(stop)) return; }
@@ -1972,15 +2098,16 @@ function wireSettings(){
   M.mode = st('mapMode3','video');
   seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v===M.mode));
   seg.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return;
-    M.mode = b.dataset.v; ss('mapMode3', M.mode); if(M.mode!=='video') videoHide(); seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); noteMode();
+    M.mode = b.dataset.v; ss('mapMode3', M.mode); if(M.mode!=='video') videoHide(); if(M.mode!=='mly') myHide(); seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); noteMode();
+    if(M.mode==='mly' && !myKey()){ ctx.toast(l('needMly'),'warn',6000); $('details.adv').open = true; }
     if((M.mode==='sv'||M.mode==='g3d') && !(st('gmKey','')||'').trim()){ ctx.toast(l('needKey'),'warn',6000); $('details.adv').open = true; }
     if(M.mode!=='g3d' && M.mode!=='sv') showLayer('sat');
     viewBtn();
     ctx.onModeChange && ctx.onModeChange();
   });
   const bind = (id, key, def) => { const el = $(id); if(!el) return; if(el.type==='checkbox'){ el.checked = st(key, def); el.addEventListener('change', () => ss(key, el.checked)); }
-    else { el.value = st(key, def); el.addEventListener('change', () => { ss(key, el.value.trim()); if(key==='gmKey'){ M.g = null; M.gBad = false; } ctx.toast(l('saved')); }); } };
-  bind('#gemKey','gemKey',''); bind('#gemModel','gemModel','gemini-flash-latest'); bind('#gmKey','gmKey',''); bind('#refine','refine',true);
+    else { el.value = st(key, def); el.addEventListener('change', () => { ss(key, el.value.trim()); if(key==='gmKey'){ M.g = null; M.gBad = false; } if(key==='mlyKey'){ MY.bad = false; if(MY.v){ try{ MY.v.remove(); }catch(e){} MY.v = null; $('#mly').innerHTML = ''; } } ctx.toast(l('saved')); }); } };
+  bind('#gemKey','gemKey',''); bind('#gemModel','gemModel','gemini-flash-latest'); bind('#gmKey','gmKey',''); bind('#mlyKey','mlyKey',''); bind('#refine','refine',true);
 }
 
 window.WCAdapter = {
@@ -1989,6 +2116,7 @@ window.WCAdapter = {
     ctx = c;
     stage.innerHTML = '<div id="ml" class="layer"></div><div id="gsv" class="layer hidden"></div><div id="g3d" class="layer hidden"></div>'
       + '<div id="pano" class="layer hidden"><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><iframe allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="360"></iframe><div id="pjs"></div></div>'
+      + '<div id="mly" class="layer hidden"></div>'
       + '<div id="pxv" class="layer hidden"><video muted playsinline></video><video muted playsinline></video></div>'
       + '<div id="vid" class="layer hidden"><div class="vwrap"><div id="ytp"></div></div><div id="vfade"></div></div>'
       + '<button id="viewBtn" class="btn hidden"></button><a id="vidCredit" class="hidden" target="_blank" rel="noopener"></a>';
@@ -2010,7 +2138,9 @@ window.WCAdapter = {
       const toMap = () => { M.map.jumpTo({center:[s.lng,s.lat], zoom:17, pitch:60, bearing:s.heading||0}); orbit(s); };
       if(YV.shown){ videoHide(); toMap(); return; }
       if(PV.shown){ panoHide(); toMap(); return; }
+      if(MY.shown){ myHide(); toMap(); return; }
       stopOrbit();
+      if(M.mode==='mly'){ await mlyFlow(s, s); return; }
       if(M.mode==='video' && await videoShow(s, M.curIdx||0)) return;
       await panoShow(s); orbit(s);
     });
@@ -2019,8 +2149,8 @@ window.WCAdapter = {
   map:{ setRoute, flyTo, orbit, stopOrbit, highlight,
     setTour(sc){ M.tourId = sc.id || ''; M.tourDest = sc.title || ''; },
     duck(on){ YV.ducked = on; vidVolume(); },
-    onPause(){ if(YV.shown){ if(YV.src==='px') pxStop(); else try{ YV.player.pauseVideo(); }catch(e){} } },
-    onResume(){ if(YV.shown){ if(YV.src==='px') pxShow(PX.key, M.curIdx); else try{ YV.player.playVideo(); }catch(e){} } },
+    onPause(){ MY.paused = true; if(YV.shown){ if(YV.src==='px') pxStop(); else try{ YV.player.pauseVideo(); }catch(e){} } },
+    onResume(){ MY.paused = false; if(YV.shown){ if(YV.src==='px') pxShow(PX.key, M.curIdx); else try{ YV.player.playVideo(); }catch(e){} } },
     wantsAmbient(){ if(M.mode !== 'video') return true; const k = M.stops && M.stops[0] && videoKey(M.stops[0]); return !k || !!PEXELS[k]; } },
   ai:{ generate, refine }
 };
