@@ -231,6 +231,12 @@ details.adv .sec:first-of-type{margin-top:10px}
 #pxv video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s ease}
 #pxv video.on{opacity:1;animation:pxkb 40s linear forwards}
 @keyframes pxkb{from{transform:scale(1)}to{transform:scale(1.1)}}
+
+#nvModal{position:fixed;inset:0;z-index:80;background:#050812cc;backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}
+#nvModal .nvBox{max-width:440px;background:var(--panel-solid);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 20px 60px #000a}
+#nvModal h3{margin:0 0 8px;font-size:18px}
+#nvModal p{margin:0 0 16px;color:#c9d1ec;font-size:14px;line-height:1.5}
+#nvModal .btn{margin-top:8px}
 </style></head><body>
 <div id="app">
   <div id="stage"></div>
@@ -1991,7 +1997,7 @@ const T = {
     topicPh:"Hoặc tự gõ chủ đề: ví dụ 'cà phê và giới trẻ'",format:'Định dạng',duo:'🎙️ 2 host',solo:'🎧 1 hướng dẫn viên',stops:'Số điểm dừng',len:'Độ dài mỗi điểm',
     lenS:'Ngắn',lenM:'Vừa',lenL:'Dài',voices:'Giọng đọc',speed:'Tốc độ',test:'▶ Nghe thử',adv:'⚙️ Cài đặt nâng cao',ambient:'Nhạc nền ambient theo theme',
     start:'✈️ Bắt đầu hành trình',mapMode:'Chế độ bản đồ',needDest:'Nhập điểm đến trước đã nhé',writing:'AI đang viết kịch bản podcast…',
-    ready:'Sẵn sàng! Đang cất cánh…',demo:'🎧 Nghe demo (không cần AI)',noVi:'Máy chưa có giọng tiếng Việt. Mở bằng Microsoft Edge để có giọng HoaiMy / NamMinh (Natural) miễn phí, hoặc cài gói Vietnamese trong Windows Settings › Time & language › Speech.',
+    ready:'Sẵn sàng! Đang cất cánh…',demo:'🎧 Nghe demo (không cần AI)',nvTitle:'Trình duyệt này không có giọng đọc tiếng Việt', nvBody:'Chrome trên máy tính không có sẵn giọng tiếng Việt, nên nếu đọc bằng giọng máy sẽ nghe lơ lớ, sai dấu. Microsoft Edge có giọng HoaiMy và NamMinh rất tự nhiên, miễn phí.', nvEdge:'🌐 Mở bằng Microsoft Edge (khuyên dùng)', nvSubs:'📝 Chỉ xem phụ đề, không đọc', nvAny:'🔊 Vẫn đọc bằng giọng hiện có', nvCopy:'Đã copy link, dán vào Edge để mở.', noVi:'Máy chưa có giọng tiếng Việt. Mở bằng Microsoft Edge để có giọng HoaiMy / NamMinh (Natural) miễn phí, hoặc cài gói Vietnamese trong Windows Settings › Time & language › Speech.',
     flying:'Đang bay tới', stop:'Điểm dừng', end:'Hết hành trình. Bấm 📚 để chọn tour khác!', voiceAuto:'Tự chọn', sample:'Xin chào, mình là {n}. Cùng đi khắp thế giới nhé!',
     libTitle:'📚 Thư viện tour có sẵn', libOpen:'📚 Chọn tour có sẵn (nghe ngay)', orMake:'hoặc tự tạo tour mới bằng AI', fAll:'Tất cả', fVn:'🇻🇳 Việt Nam', fWorld:'🌍 Thế giới',
     fKids:'🧸 Trẻ em & gia đình', fStudent:'🎓 Học sinh', fRelax:'🌙 Thư giãn', fMine:'✨ Tour của bạn', stopsN:'điểm', min:'phút', emptyMine:'Chưa có tour nào. Tạo tour bằng AI ở khung bên trái, tour sẽ được lưu ở đây.',
@@ -2002,7 +2008,7 @@ const T = {
     topicPh:"Or type your own topic, e.g. 'street coffee culture'",format:'Format',duo:'🎙️ 2 hosts',solo:'🎧 Solo guide',stops:'Stops',len:'Length per stop',
     lenS:'Short',lenM:'Medium',lenL:'Long',voices:'Voices',speed:'Speed',test:'▶ Preview',adv:'⚙️ Advanced settings',ambient:'Ambient music matching the theme',
     start:'✈️ Start the journey',mapMode:'Map mode',needDest:'Type a destination first',writing:'AI is writing your podcast script…',
-    ready:'Ready! Taking off…',demo:'🎧 Play demo (no AI needed)',noVi:'No English voice found on this device.',
+    ready:'Ready! Taking off…',demo:'🎧 Play demo (no AI needed)',nvTitle:'This browser has no voice for this language', nvBody:'No matching voice is installed, so the narration would sound wrong. Microsoft Edge includes natural voices for free.', nvEdge:'🌐 Open in Microsoft Edge (recommended)', nvSubs:'📝 Subtitles only, no voice', nvAny:'🔊 Use the available voice anyway', nvCopy:'Link copied, paste it into Edge.', noVi:'No English voice found on this device.',
     flying:'Flying to', stop:'Stop', end:'Journey complete. Hit 📚 to pick another tour!', voiceAuto:'Auto', sample:"Hi, I'm {n}. Let's travel the world together!",
     libTitle:'📚 Ready-made tours', libOpen:'📚 Pick a ready-made tour', orMake:'or create a new tour with AI', fAll:'All', fVn:'🇻🇳 Vietnam', fWorld:'🌍 World',
     fKids:'🧸 Kids & family', fStudent:'🎓 Students', fRelax:'🌙 Relax', fMine:'✨ Your tours', stopsN:'stops', min:'min', emptyMine:'No tours yet. Create one with AI on the left and it will be saved here.',
@@ -2075,7 +2081,12 @@ const Speech = {
     return out;
   },
   _keep:[],
+  subsOnly:false,
   async say(text, {voice, rate=1, pitch=1, lang='vi', isLive=()=>true}={}){
+    if(this.subsOnly || (!voice && this.ready && !this.forceAny)){   // no matching voice: show subtitles at reading pace instead of mispronouncing
+      const ms = Math.max(2600, Math.min(14000, String(text).length * 62 / rate)); const t0 = Date.now();
+      while(Date.now()-t0 < ms){ if(!isLive()) return; await sleep(200); } return;
+    }
     if(!('speechSynthesis' in window)){ await sleep(Math.min(9000, text.length*60)); return; }
     for(const c of this.chunks(text)){
       if(!isLive()) return;
@@ -2320,7 +2331,30 @@ async function playFrom(i, j){
 function pause(){ P.token++; P.playing = false; Speech.stop(); try{ const m = api().map; m.onPause && m.onPause(); }catch(e){} setPlayIcon(); $('#spk').classList.remove('talk'); api().map.stopOrbit && api().map.stopOrbit(); }
 function jump(i){ if(!P.script) return; i = Math.max(0, Math.min(P.script.stops.length-1, i)); P.flown = -1; Speech.prime(); playFrom(i, 0); }
 
+function voiceCheck(){
+  // ask once per visit when the browser lacks a voice for the current language
+  if(Speech.forceAny || Speech.subsOnly || $('#nvModal')) return;
+  if(!Speech.ready || Speech.forLang(LANG).length) return;
+  const isEdge = /Edg\//.test(navigator.userAgent); const isWin = /Windows/.test(navigator.userAgent);
+  const m = document.createElement('div'); m.id = 'nvModal';
+  m.innerHTML = '<div class="nvBox"><h3>'+t('nvTitle')+'</h3><p>'+t('nvBody')+'</p>'
+    + (!isEdge ? '<button class="btn pri big" data-a="edge">'+t('nvEdge')+'</button>' : '')
+    + '<button class="btn big" data-a="subs">'+t('nvSubs')+'</button><button class="btn big" data-a="any">'+t('nvAny')+'</button></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; const a = b.dataset.a;
+    if(a==='edge'){
+      const url = location.href;
+      if(isWin){ location.href = 'microsoft-edge:' + url; }
+      try{ navigator.clipboard.writeText(url); toast(t('nvCopy')); }catch(_){}
+      return;
+    }
+    if(a==='subs') Speech.subsOnly = true;
+    if(a==='any') Speech.forceAny = true;
+    m.remove();
+  });
+}
 async function startTour(script){
+  setTimeout(voiceCheck, 400); setTimeout(voiceCheck, 2500);
   P.script = script; P.i = 0; P.j = 0; P.flown = -1;
   $('#lib').classList.add('hidden'); $('#lib').classList.add('over'); $('#itin').classList.remove('hidden'); $('#player').classList.remove('hidden'); $('#modeBadge').classList.remove('hidden');
   $('#app').classList.remove('panelOpen'); $('#app').classList.add('panelHidden');
