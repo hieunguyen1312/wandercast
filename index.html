@@ -1501,6 +1501,7 @@ function orbit(stop){
   stopOrbit();
   if(M.active==='video'){ if(YV.src==='px'){ pxShow(PX.key, M.curIdx); } else { try{ YV.player.playVideo(); }catch(e){} } return; }
   if(M.active==='pano'){ startStroll(stop); return; }
+  if(M.active==='mly') return;   // Mapillary keeps strolling on its own
   if(M.active==='g3d' && M.m3d){
     const camera = { center:{lat:stop.lat, lng:stop.lng, altitude:40}, tilt:66, range:700, heading:stop.heading||0 };
     try{ M.m3d.flyCameraAround({ camera, durationMillis:90000, repeatCount:1 }); }
@@ -1721,16 +1722,17 @@ function loadMly(){
   return MY.lib;
 }
 // images around a point, best first (close, recent, 360° preferred)
-async function myNear(lat, lng, r){
+async function myNear(lat, lng, r, want){
   const d = r/111320, dl = d/Math.max(0.2, Math.cos(lat*R));
-  const u = 'https://graph.mapillary.com/images?access_token='+encodeURIComponent(myKey())+'&fields=id,computed_geometry,geometry,captured_at,is_pano,sequence&limit=80&bbox='
+  const u = 'https://graph.mapillary.com/images?access_token='+encodeURIComponent(myKey())+'&fields=id,computed_geometry,geometry,captured_at,is_pano,sequence,computed_compass_angle,compass_angle&limit=80&bbox='
     + [lng-dl, lat-d, lng+dl, lat+d].map(x => x.toFixed(6)).join(',');
   let j; try{ j = await getJSON(u); }catch(e){ if(/HTTP 40[13]/.test(e.message)){ MY.bad = true; } throw e; }
   const now = Date.now(), at = {lat, lng};
   return (j.data||[]).map(im => { const g = im.computed_geometry || im.geometry; if(!g) return null;
       const p = {id:im.id, seq:im.sequence, lat:g.coordinates[1], lng:g.coordinates[0]};
       const age = Math.min(10, (now - (im.captured_at||0))/3.15e10);
-      p.score = hav(p, at)*1000 + age*5 - (im.is_pano ? 12 : 0); return p; })
+      let turn = 0; if(want != null && !im.is_pano){ const c = im.computed_compass_angle ?? im.compass_angle; if(c != null) turn = Math.abs(((c - want + 540) % 360) - 180); }
+      p.score = hav(p, at)*1000 + age*5 - (im.is_pano ? 12 : 0) + turn*0.35; return p; })
     .filter(Boolean).sort((a,b) => a.score - b.score);
 }
 async function myFind(stop){
@@ -1740,7 +1742,7 @@ async function myFind(stop){
 async function myInit(){
   const lib = await loadMly();
   if(!MY.v){
-    MY.v = new lib.Viewer({ accessToken:myKey(), container:$('#mly'), component:{ cover:false } });
+    MY.v = new lib.Viewer({ accessToken:myKey(), container:$('#mly'), component:{ cover:false, sequence:false, direction:false, zoom:false, bearing:false } });
     MY.v.on('image', e => { const im = e.image; if(!im) return; MY.seq = im.sequenceId; const ll = im.lngLat;
       if(ll){ MY.pos = {lat:ll.lat, lng:ll.lng}; if(M.ok) M.agent.setLngLat([ll.lng, ll.lat]); } });
     const hold = () => { PV.hold = Date.now()+15000; };
@@ -1783,12 +1785,14 @@ async function myWalk(stop, tok){
     for(let i=1; i<pts.length; i++){
       if(tok !== MY.tok || !MY.shown) return;
       while(MY.paused && tok === MY.tok) await ctx.sleep(400);
-      let im = null; try{ im = (await myNear(pts[i].lat, pts[i].lng, 30))[0]; }catch(e){}
+      const h = bearing(pts[i], i+1 < pts.length ? pts[i+1] : stop);
+      let im = null; try{ im = (await myNear(pts[i].lat, pts[i].lng, 30, h))[0]; }catch(e){}
       if(im){ const t0 = Date.now(); await myMove(im.id); await ctx.sleep(Math.max(0, 1700 - (Date.now()-t0))); }
       M.map.jumpTo({center:[pts[i].lng, pts[i].lat]});
     }
   }
   try{ const list = await myFind(stop); if(list[0] && tok === MY.tok) await myMove(list[0].id); }catch(e){}
+  const b = $('#modeBadge'); if(b && tok === MY.tok) b.textContent = '📍 ' + stop.name;
 }
 async function mlyFlow(stop, prev){
   if(!myKey() || MY.bad){
